@@ -1,0 +1,11 @@
+# Credenciales locales
+/config/database.php
+
+# Archivos temporales subidos por usuarios
+/storage/temp/*
+!/storage/temp/.gitkeep
+
+# Sistema operativo / editor
+.DS_Store
+Thumbs.db
+.vscode/
