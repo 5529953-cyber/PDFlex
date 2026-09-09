@@ -44,7 +44,7 @@ class AuthController extends Controller
         $nombre = trim($_POST['nombre'] ?? '');
         $correo = trim($_POST['correo'] ?? '');
         $contrasena = $_POST['contrasena'] ?? '';
-        $confirmar = $_POST['confirmar_contrasena'] ?? '';
+        $confirmar = $_POST['confirmar'] ?? '';
 
         if ($nombre === '' || $correo === '' || $contrasena === '') {
             $this->vista('auth/registro', ['error' => 'Completá todos los campos.'], 'auth');
