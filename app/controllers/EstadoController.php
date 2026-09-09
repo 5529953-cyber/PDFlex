@@ -9,7 +9,7 @@ class EstadoController extends Controller
 {
     public function index(): void
     {
-        $this->vista('estado/estado');
+        $this->vista('estado/estado', ['activo' => 'estado']);
     }
 
     public function consultar(): void

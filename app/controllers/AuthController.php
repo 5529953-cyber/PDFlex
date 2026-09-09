@@ -11,7 +11,7 @@ class AuthController extends Controller
 {
     public function login(): void
     {
-        $this->vista('auth/login');
+        $this->vista('auth/login', [], 'auth');
     }
 
     public function procesarLogin(): void
@@ -23,7 +23,7 @@ class AuthController extends Controller
 
     public function registro(): void
     {
-        $this->vista('auth/registro');
+        $this->vista('auth/registro', [], 'auth');
     }
 
     public function procesarRegistro(): void

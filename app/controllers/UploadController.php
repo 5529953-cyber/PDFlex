@@ -11,7 +11,7 @@ class UploadController extends Controller
 {
     public function index(): void
     {
-        $this->vista('upload/subida');
+        $this->vista('upload/subida', ['activo' => 'subir']);
     }
 
     public function procesar(): void

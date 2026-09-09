@@ -5,7 +5,7 @@
  */
 class Controller
 {
-    protected function vista(string $ruta, array $datos = []): void
+    protected function vista(string $ruta, array $datos = [], string $layout = 'app'): void
     {
         extract($datos);
         require __DIR__ . '/../views/layouts/header.php';

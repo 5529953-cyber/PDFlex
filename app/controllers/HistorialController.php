@@ -11,6 +11,6 @@ class HistorialController extends Controller
     {
         // TODO (Backend, s6-b1): traer registros reales del modelo Historial.
         $registros = [];
-        $this->vista('historial/historial', ['registros' => $registros]);
+        $this->vista('historial/historial', ['registros' => $registros, 'activo' => 'historial']);
     }
 }

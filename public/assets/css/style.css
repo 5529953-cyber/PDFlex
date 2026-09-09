@@ -1,5 +1,119 @@
-/* Estilos propios de PDFlex — se completa a partir de la Semana 2/3 (s2-f2 layout base). */
+/* PDFlex — estilos base del layout compartido (header, sidebar, footer).
+ * Paleta y tipografía tomadas de los wireframes (claude/… Wireframes),
+ * adaptadas de boceto a interfaz real con Bootstrap 5.
+ */
 
 :root {
-  --pdflex-accent: #3457d5;
+  --paper: #f5f4ef;
+  --surface: #ffffff;
+  --ink: #2b2b28;
+  --ink-dim: #6f6d64;
+  --line: #c9c6ba;
+  --line-strong: #8f8c7d;
+  --accent: #3457d5;
+  --accent-soft: rgba(52, 87, 213, 0.08);
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Work Sans', system-ui, -apple-system, sans-serif;
+}
+
+a {
+  color: var(--accent);
+}
+a:hover {
+  color: #243e9e;
+}
+
+/* Marca */
+.pdflex-logo {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 700;
+  color: var(--accent);
+  font-size: 1.35rem;
+}
+
+.pdflex-badge {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1.6px solid var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+/* Barra superior (pantallas internas) */
+.pdflex-topbar {
+  height: 64px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line-strong);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.75rem;
+}
+
+.pdflex-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+/* Cuerpo: sidebar + contenido */
+.pdflex-shell {
+  display: flex;
+  align-items: stretch;
+  min-height: calc(100vh - 64px);
+}
+
+.pdflex-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--line-strong);
+  padding: 1.1rem 0;
+}
+
+.pdflex-navitem {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.65rem 1.1rem;
+  font-size: 0.9rem;
+  color: var(--ink-dim);
+  border-left: 3px solid transparent;
+}
+.pdflex-navitem:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.pdflex-navitem.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-left-color: var(--accent);
+  font-weight: 600;
+}
+
+.pdflex-main {
+  flex: 1;
+  padding: 2rem 2.25rem;
+}
+
+/* Pantallas de autenticación (login/registro) — sin sidebar, tarjeta centrada.
+ * El maquetado completo de la tarjeta se hace en la Semana 3 (s3-f1); esto
+ * solo deja el espacio y la marca ya ubicados. */
+.pdflex-auth-badge {
+  z-index: 5;
 }
