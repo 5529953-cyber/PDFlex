@@ -117,3 +117,111 @@ a:hover {
 .pdflex-auth-badge {
   z-index: 5;
 }
+
+/* Tarjeta de login / registro — Semana 3 (s3-f1), fiel al wireframe
+ * "Login" (Main.dc.html): mismo tamaño, tipografía y espaciado, con
+ * borde sólido (el punteado del wireframe es solo convención de boceto). */
+.pdflex-auth-card {
+  width: 440px;
+  max-width: 92vw;
+  background: var(--surface);
+  border: 1.5px solid var(--line-strong);
+  padding: 2.25rem 2.5rem 2.5rem;
+}
+
+.pdflex-auth-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 700;
+  font-size: 1.35rem;
+  color: var(--ink);
+}
+
+.pdflex-auth-subtitle {
+  font-size: 0.8rem;
+  color: var(--ink-dim);
+}
+
+.pdflex-auth-tabs {
+  display: flex;
+  margin: 1.6rem 0 1.4rem;
+  border: 1.5px solid var(--line-strong);
+}
+
+.pdflex-auth-tab {
+  flex: 1;
+  text-align: center;
+  padding: 0.6rem 0;
+  font-size: 0.9rem;
+  text-decoration: none;
+  color: var(--ink-dim);
+}
+.pdflex-auth-tab + .pdflex-auth-tab {
+  border-left: 1.5px solid var(--line-strong);
+}
+.pdflex-auth-tab.active {
+  background: var(--accent);
+  color: #fff;
+}
+.pdflex-auth-tab:hover:not(.active) {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.pdflex-form-label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--ink-dim);
+  margin-bottom: 0.35rem;
+}
+
+.pdflex-form-control {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border: 1.5px solid var(--line-strong);
+  background: var(--surface);
+  font-size: 0.875rem;
+  color: var(--ink);
+  margin-bottom: 1rem;
+}
+.pdflex-form-control:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.pdflex-auth-row {
+  margin-bottom: 1.4rem;
+}
+
+.pdflex-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  color: var(--ink-dim);
+}
+
+.pdflex-auth-link {
+  font-size: 0.8rem;
+  text-decoration: none;
+}
+
+.pdflex-btn-primary {
+  width: 100%;
+  padding: 0.8rem 0;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.pdflex-btn-primary:hover {
+  background: #243e9e;
+}
+
+.pdflex-auth-footnote {
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--ink-dim);
+  margin-top: 1.15rem;
+}
