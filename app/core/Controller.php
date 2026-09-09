@@ -15,7 +15,10 @@ class Controller
 
     protected function redirigir(string $ruta): void
     {
-        header("Location: {$ruta}");
+        // BASE_URL es obligatorio aquí: la app vive en /PDFlex/public, no en la
+        // raíz del servidor. Un "Location: /login" a secas manda al navegador a
+        // http://localhost/login (404) en vez de http://localhost/PDFlex/public/login.
+        header('Location: ' . BASE_URL . $ruta);
         exit;
     }
 
