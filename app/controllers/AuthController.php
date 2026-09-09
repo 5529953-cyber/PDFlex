@@ -1,11 +1,6 @@
 <?php
 /**
  * Pantallas y lógica de registro / inicio de sesión.
- * Vista ya diseñada en el wireframe "Login" (Main.dc.html).
- *
- * Semana 1 (ahora):  solo se define esta estructura y las rutas.
- * Semana 3 (después): Frontend maqueta la vista con Bootstrap (s3-f1)
- *                      y Backend escribe la lógica real de sesión (s3-b1).
  */
 class AuthController extends Controller
 {
@@ -16,8 +11,26 @@ class AuthController extends Controller
 
     public function procesarLogin(): void
     {
-        // TODO (Backend, s3-b1): validar credenciales contra la tabla `usuarios`,
-        // iniciar sesión y redirigir a /subir. Por ahora solo redirige.
+        $correo = trim($_POST['correo'] ?? '');
+        $contrasena = $_POST['contrasena'] ?? '';
+
+        if ($correo === '' || $contrasena === '') {
+            $this->vista('auth/login', ['error' => 'Completá correo y contraseña.'], 'auth');
+            return;
+        }
+
+        $usuario = Usuario::buscarPorCorreo($correo);
+
+        if (!$usuario || !password_verify($contrasena, $usuario['contrasena'])) {
+            $this->vista('auth/login', ['error' => 'Correo o contraseña incorrectos.'], 'auth');
+            return;
+        }
+
+        // Credenciales correctas: guardamos los datos clave en la sesión.
+        $_SESSION['usuario_id'] = $usuario['id'];
+        $_SESSION['usuario_nombre'] = $usuario['nombre'];
+        $_SESSION['usuario_rol'] = $usuario['rol'];
+
         $this->redirigir('/subir');
     }
 
@@ -28,8 +41,35 @@ class AuthController extends Controller
 
     public function procesarRegistro(): void
     {
-        // TODO (Backend, s3-b1): crear usuario con contraseña cifrada (password_hash).
-        $this->redirigir('/login');
+        $nombre = trim($_POST['nombre'] ?? '');
+        $correo = trim($_POST['correo'] ?? '');
+        $contrasena = $_POST['contrasena'] ?? '';
+        $confirmar = $_POST['confirmar_contrasena'] ?? '';
+
+        if ($nombre === '' || $correo === '' || $contrasena === '') {
+            $this->vista('auth/registro', ['error' => 'Completá todos los campos.'], 'auth');
+            return;
+        }
+
+        if ($contrasena !== $confirmar) {
+            $this->vista('auth/registro', ['error' => 'Las contraseñas no coinciden.'], 'auth');
+            return;
+        }
+
+        if (Usuario::buscarPorCorreo($correo)) {
+            $this->vista('auth/registro', ['error' => 'Ese correo ya está registrado.'], 'auth');
+            return;
+        }
+
+        $hash = password_hash($contrasena, PASSWORD_DEFAULT);
+        $usuarioId = Usuario::crear($nombre, $correo, $hash);
+
+        // Registro exitoso: iniciamos sesión automáticamente.
+        $_SESSION['usuario_id'] = $usuarioId;
+        $_SESSION['usuario_nombre'] = $nombre;
+        $_SESSION['usuario_rol'] = 'estudiante';
+
+        $this->redirigir('/subir');
     }
 
     public function logout(): void
