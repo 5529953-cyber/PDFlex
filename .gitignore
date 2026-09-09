@@ -1,8 +1,13 @@
-# Credenciales locales
+# Credenciales locales — cada quien tiene las suyas
 /config/database.php
+/config/config.php
 
-# Archivos temporales subidos por usuarios
+# Archivos que suben los usuarios (no van al repo)
+/storage/uploads/*
+/storage/processed/*
 /storage/temp/*
+!/storage/uploads/.gitkeep
+!/storage/processed/.gitkeep
 !/storage/temp/.gitkeep
 
 # Sistema operativo / editor
