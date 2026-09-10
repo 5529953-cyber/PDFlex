@@ -218,10 +218,176 @@ a:hover {
 .pdflex-btn-primary:hover {
   background: #243e9e;
 }
+.pdflex-btn-primary:disabled {
+  background: var(--line-strong);
+  cursor: not-allowed;
+}
 
 .pdflex-auth-footnote {
   text-align: center;
   font-size: 0.72rem;
   color: var(--ink-dim);
   margin-top: 1.15rem;
+}
+
+/* Pantalla de subida — Semana 3 (s3-f2), fiel al wireframe "Subir archivo"
+ * (Subida.dc.html): zona de arrastrar/soltar, tarjetas de operación y
+ * validación visual (tipo de archivo, tamaño, operación elegida) en JS. */
+.pdflex-page-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 700;
+  font-size: 1.4rem;
+  margin: 0 0 0.2rem;
+}
+.pdflex-page-subtitle {
+  font-size: 0.85rem;
+  color: var(--ink-dim);
+  margin: 0 0 1.6rem;
+}
+
+.pdflex-upload-grid {
+  display: flex;
+  gap: 1.75rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.pdflex-upload-col {
+  flex: 1 1 320px;
+  min-width: 280px;
+}
+
+.pdflex-dropzone {
+  display: block;
+  border: 2px dashed var(--line-strong);
+  background: var(--surface);
+  padding: 2.1rem 1.25rem;
+  text-align: center;
+  margin-bottom: 1rem;
+  cursor: pointer;
+  color: var(--ink-dim);
+}
+.pdflex-dropzone svg {
+  color: var(--ink-dim);
+  margin-bottom: 0.5rem;
+}
+.pdflex-dropzone.dragover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.pdflex-dropzone-text {
+  font-size: 0.875rem;
+  color: var(--ink);
+}
+.pdflex-dropzone-hint {
+  font-size: 0.75rem;
+  color: var(--ink-dim);
+  margin-top: 0.15rem;
+}
+
+.pdflex-file-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border: 1.5px solid var(--line-strong);
+  background: var(--surface);
+  padding: 0.6rem 0.85rem;
+}
+.pdflex-file-info {
+  flex: 1;
+  min-width: 0;
+}
+.pdflex-file-name {
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pdflex-file-size {
+  font-size: 0.72rem;
+  color: var(--ink-dim);
+}
+.pdflex-file-remove {
+  background: none;
+  border: none;
+  color: var(--ink-dim);
+  cursor: pointer;
+  display: flex;
+  padding: 0.2rem;
+}
+.pdflex-file-remove:hover {
+  color: var(--accent);
+}
+
+.pdflex-file-error {
+  font-size: 0.78rem;
+  color: #b3261e;
+  margin-top: 0.5rem;
+}
+
+.pdflex-op-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.6rem;
+}
+.pdflex-op-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+.pdflex-opcard {
+  border: 1.5px solid var(--line-strong);
+  background: var(--surface);
+  padding: 0.95rem 0.7rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--ink);
+  cursor: pointer;
+}
+.pdflex-opcard:hover {
+  border-color: var(--accent);
+}
+.pdflex-opcard.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.pdflex-compression-panel {
+  border: 1.5px solid var(--line-strong);
+  background: var(--surface);
+  padding: 0.9rem 1rem;
+  margin-bottom: 1.4rem;
+}
+.pdflex-compression-label {
+  font-size: 0.8rem;
+  color: var(--ink-dim);
+  margin-bottom: 0.5rem;
+}
+.pdflex-level-group {
+  display: flex;
+  gap: 0.5rem;
+}
+.pdflex-level-btn {
+  padding: 0.4rem 0.9rem;
+  border: 1.5px solid var(--line-strong);
+  background: var(--surface);
+  font-size: 0.78rem;
+  color: var(--ink-dim);
+  cursor: pointer;
+}
+.pdflex-level-btn.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+@media (max-width: 640px) {
+  .pdflex-op-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
