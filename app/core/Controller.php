@@ -28,4 +28,11 @@ class Controller
         echo json_encode($datos);
         exit;
     }
+
+     protected function requiereSesion(): void
+    {
+        if (empty($_SESSION['usuario_id'])) {
+            $this->redirigir('/login');
+        }
+    }
 }

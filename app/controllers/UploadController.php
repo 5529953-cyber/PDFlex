@@ -11,11 +11,14 @@ class UploadController extends Controller
 {
     public function index(): void
     {
+        $this->requiereSesion();
         $this->vista('upload/subida', ['activo' => 'subir']);
     }
 
     public function procesar(): void
     {
+        $this->requiereSesion();
+
         // TODO (Backend): mover el archivo a storage/uploads, registrar la
         // operación con Historial::registrar() (tabla `historial`), guardar
         // su ruta física con ArchivoTemporal::registrar() y disparar el

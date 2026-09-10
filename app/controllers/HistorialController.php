@@ -9,6 +9,8 @@ class HistorialController extends Controller
 {
     public function index(): void
     {
+        $this->requiereSesion();
+
         // TODO (Backend, s6-b1): traer registros reales del modelo Historial.
         $registros = [];
         $this->vista('historial/historial', ['registros' => $registros, 'activo' => 'historial']);

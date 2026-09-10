@@ -9,11 +9,14 @@ class EstadoController extends Controller
 {
     public function index(): void
     {
+         $this->requiereSesion();
         $this->vista('estado/estado', ['activo' => 'estado']);
     }
 
     public function consultar(): void
     {
+         $this->requiereSesion();
+         
         // TODO (Backend, s6-b2): devolver el progreso real en JSON para
         // que la vista lo consulte periódicamente (polling) sin recargar.
         $this->json(['estado' => 'en_curso', 'progreso' => 0]);
