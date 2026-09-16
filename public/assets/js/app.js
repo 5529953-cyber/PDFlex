@@ -126,3 +126,74 @@
     }
   });
 })();
+
+// PDFlex — menú del logo (Ver perfil / Cerrar sesión) en el header del
+// panel principal. Además de :hover/:focus-within (ya cubiertos en CSS,
+// para cursor y teclado), acá se alterna la clase "open" al tocar/hacer
+// clic en el ícono, para que funcione igual en teléfonos, que no tienen
+// cursor y solo cuentan con touch.
+(function () {
+  const wrap = document.querySelector('.pdflex-logo-wrap');
+  if (!wrap) return; // pantalla sin logo con menú (p. ej. login/registro)
+
+  function cerrar() {
+    wrap.classList.remove('open');
+    wrap.setAttribute('aria-expanded', 'false');
+  }
+
+  function alternar() {
+    const abierto = wrap.classList.toggle('open');
+    wrap.setAttribute('aria-expanded', abierto ? 'true' : 'false');
+  }
+
+  wrap.addEventListener('click', (e) => {
+    e.stopPropagation();
+    alternar();
+  });
+
+  wrap.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      alternar();
+    }
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!wrap.contains(e.target)) cerrar();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') cerrar();
+  });
+})();
+
+// PDFlex — volteo de la tarjeta "carpeta" en Login/Registro (artifact
+// "PDFlex — Login carpeta"). Los botones [data-flip] cambian qué cara se
+// ve sin recargar la página; cada formulario sigue apuntando a su propia
+// ruta real, así que enviar cualquiera de los dos funciona sin importar
+// qué cara esté visible en ese momento.
+(function () {
+  const flip = document.getElementById('pdflexFlip');
+  if (!flip) return; // pantalla sin tarjeta "carpeta"
+
+  const caras = flip.querySelectorAll('.pdflex-flip-face');
+
+  function actualizarAccesibilidad() {
+    const mostrandoBack = flip.classList.contains('flipped');
+    caras.forEach((cara) => {
+      const esVisible = cara.classList.contains('back') === mostrandoBack;
+      cara.setAttribute('aria-hidden', esVisible ? 'false' : 'true');
+      cara.querySelectorAll('input, button, a, select, textarea').forEach((el) => {
+        el.tabIndex = esVisible ? 0 : -1;
+      });
+    });
+  }
+
+  document.querySelectorAll('[data-flip]').forEach((boton) => {
+    boton.addEventListener('click', () => {
+      flip.classList.toggle('flipped', boton.dataset.flip === 'back');
+      actualizarAccesibilidad();
+    });
+  });
+
+  actualizarAccesibilidad();
+})();

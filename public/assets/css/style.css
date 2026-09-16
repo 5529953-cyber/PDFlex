@@ -1,17 +1,46 @@
-/* PDFlex — estilos base del layout compartido (header, sidebar, footer).
- * Paleta y tipografía tomadas de los wireframes (claude/… Wireframes),
- * adaptadas de boceto a interfaz real con Bootstrap 5.
+/* PDFlex — estilos base del layout compartido (header, contenido, footer).
+ * Paleta mostaza/beige y medidas tomadas de las solicitudes de rediseño:
+ * "Interfaz completa del Panel Principal — Header + Pantalla Subir" (13 sep 2026)
+ * y "Historial de conversiones" (14 sep 2026), ambas validadas con mockup
+ * interactivo. El Login/Registro no tuvo una solicitud propia, pero comparte
+ * el mismo lenguaje visual (tarjeta flotante, radio, sombra) que ya estaba
+ * definido ahí desde antes — solo se le aplica aquí la misma paleta.
+ *
+ * Nota de alcance: el Tono 6 (#BF7700) queda reservado para el botón
+ * "Procesar archivo", las filas de error de Historial y (según el mockup
+ * "Estado de tus procesos", 14 sep 2026) las tarjetas de error de Estado,
+ * tal como piden esas solicitudes. Para el resto de acentos (enlaces, botones "Entrar" /
+ * "Crear cuenta", íconos) se usa el degradado del Tono 5 (#B17007) — mismo
+ * matiz, menor luminosidad — que la solicitud ya define como ancla de
+ * contraste para el logo y el nombre de usuario. El Tono 7 (#AC6A03) no se
+ * usa en ningún elemento, según lo pedido.
  */
 
 :root {
-  --paper: #f5f4ef;
-  --surface: #ffffff;
-  --ink: #2b2b28;
-  --ink-dim: #6f6d64;
-  --line: #c9c6ba;
-  --line-strong: #8f8c7d;
-  --accent: #3457d5;
-  --accent-soft: rgba(52, 87, 213, 0.08);
+  --paper: #f3ece0;
+  --surface: #fbf7ef;
+  --ink: #2b2118;
+  --ink-dim: #7d7263;
+  --line: #e3d8c5;
+  --line-strong: #c4b598;
+
+  --tono1: #FBF5E2; /* crema marfil — fila "Completado" en Historial */
+  --tono2: #FFEBCD; /* ancla — seleccionado: pestaña, apartado, nivel */
+  --tono5: #F6A31B; /* mostaza intenso */
+  --tono6: #BF7700; /* ancla oscura — solo "Procesar archivo" y fila "Error" */
+  --acento: #B17007; /* degradado del Tono 5 — logo, enlaces, texto/ícono con contraste */
+
+  /* Dorado propio del diseño "Login carpeta" (artifact aparte, 11 sep 2026) —
+     distinto de la paleta mostaza/beige del resto del panel; se deja tal cual
+     ese diseño lo define, sin remapearlo a los Tonos 1-7. */
+  --carpeta-accent: #f0cd5e;
+  --carpeta-accent-shadow: rgba(240, 205, 94, 0.45);
+
+  /* Azul propio del mockup "Estado de tus procesos" (14 sep 2026): solo para
+     la señal "En curso" (ícono, barra de progreso, insignia) — es la única
+     pantalla donde se usa un acento fuera de la paleta mostaza/beige. */
+  --estado-progreso: #3B5BDB;
+  --estado-progreso-bg: #E4E9FB;
 }
 
 body {
@@ -21,218 +50,429 @@ body {
 }
 
 a {
-  color: var(--accent);
+  color: var(--acento);
 }
 a:hover {
-  color: #243e9e;
+  color: #8a5805;
 }
 
-/* Marca */
-.pdflex-logo {
+/* Insignia de marca de las pantallas de autenticación (login/registro):
+   doble anillo concéntrico con "PDFlex" escrito adentro, tal como en el
+   artifact "PDFlex — Login carpeta" (11 sep 2026). */
+.pdflex-auth-ring-outer {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  border: 1.4px solid var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pdflex-auth-ring-inner {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1.2px solid var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pdflex-auth-ring-inner span {
   font-family: 'Playfair Display', Georgia, serif;
+  font-size: 12.5px;
   font-weight: 700;
-  color: var(--accent);
-  font-size: 1.35rem;
+  color: var(--ink);
+  letter-spacing: 0.01em;
 }
 
-.pdflex-badge {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  border: 1.6px solid var(--accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  color: var(--accent);
-}
-
-/* Barra superior (pantallas internas) */
+/* ============================================================
+   Header del panel principal (Subir / Historial / Estado)
+   Tarjeta flotante con logo cortado en el borde, pestañas con
+   selección dinámica y perfil flotante con menú.
+   ============================================================ */
 .pdflex-topbar {
-  height: 64px;
+  position: relative;
+  margin: 24px 32px 0;
+  height: 84px;
+  border-radius: 16px;
   background: var(--surface);
-  border-bottom: 1px solid var(--line-strong);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 1.75rem;
+  box-shadow: 0 10px 24px rgba(46, 44, 38, 0.10);
+  overflow: visible;
 }
 
-.pdflex-avatar {
-  width: 32px;
-  height: 32px;
+.pdflex-topbar-inner {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 28px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Logo: doble anillo, único elemento del panel cortado/topado al borde —
+   solo se ve su mitad derecha, tal como pide la solicitud. */
+.pdflex-logo-wrap {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 84px;
+  display: flex;
+  align-items: center;
+  z-index: 2;
+  cursor: pointer;
+}
+.pdflex-logo-clip {
+  width: 44px;
+  height: 88px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.pdflex-logo-ring-outer {
+  width: 88px;
+  height: 88px;
+  margin-left: -44px;
   border-radius: 50%;
-  background: var(--accent);
-  color: #fff;
+  border: 3px solid var(--acento);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.8rem;
-  font-weight: 600;
+}
+.pdflex-logo-ring-inner {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 2px solid var(--acento);
+}
+.pdflex-logo-name {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: max-width 0.35s ease, opacity 0.35s ease;
+}
+.pdflex-logo-name span {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--acento);
+  text-shadow: 2px 3px 8px rgba(46, 44, 38, 0.35);
+  padding-left: 14px;
+  /* Sin fondo bajo ningún concepto — solo sombra de texto. */
+}
+.pdflex-logo-wrap:hover .pdflex-logo-name,
+.pdflex-logo-wrap:focus-within .pdflex-logo-name,
+.pdflex-logo-wrap.open .pdflex-logo-name {
+  max-width: 200px;
+  opacity: 1;
 }
 
-/* Cuerpo: sidebar + contenido */
-.pdflex-shell {
-  display: flex;
-  align-items: stretch;
-  min-height: calc(100vh - 64px);
+/* Menú de cuenta (Ver perfil / Cerrar sesión): vive dentro del logo en vez
+   de un ícono de perfil aparte. Se despliega debajo, con desplazamiento y
+   sombra flotante, al mismo tiempo que aparece el nombre "PDFlex". Se abre
+   con :hover (cursor), :focus-within (teclado) o la clase "open" que
+   app.js alterna al tocar el ícono — así funciona igual en teléfonos, que
+   no tienen cursor. */
+.pdflex-logo-menu {
+  position: absolute;
+  top: 92px;
+  left: 0;
+  background: #fffdf8;
+  border-radius: 11px;
+  box-shadow: 0 20px 38px rgba(46, 44, 38, 0.24), 0 6px 14px rgba(46, 44, 38, 0.12);
+  padding: 7px;
+  min-width: 152px;
+  z-index: 20;
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.pdflex-logo-wrap:hover .pdflex-logo-menu,
+.pdflex-logo-wrap:focus-within .pdflex-logo-menu,
+.pdflex-logo-wrap.open .pdflex-logo-menu {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.pdflex-logo-menu a {
+  display: block;
+  padding: 9px 13px;
+  font-size: 13px;
+  color: var(--ink);
+  border-radius: 7px;
+  text-decoration: none;
+}
+.pdflex-logo-menu a:hover {
+  background: #f1e9d8;
 }
 
-.pdflex-sidebar {
-  width: 220px;
+.pdflex-logo-spacer {
+  width: 44px;
   flex-shrink: 0;
-  background: var(--surface);
-  border-right: 1px solid var(--line-strong);
-  padding: 1.1rem 0;
 }
 
-.pdflex-navitem {
+.pdflex-nav {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.65rem 1.1rem;
-  font-size: 0.9rem;
-  color: var(--ink-dim);
-  border-left: 3px solid transparent;
+  gap: 14px;
+  margin-left: 16px;
+  transform: translateX(0);
+  transition: transform 0.35s ease;
 }
-.pdflex-navitem:hover {
-  background: var(--accent-soft);
-  color: var(--accent);
+.pdflex-logo-wrap:hover ~ .pdflex-topbar-inner .pdflex-nav,
+.pdflex-logo-wrap:focus-within ~ .pdflex-topbar-inner .pdflex-nav,
+.pdflex-logo-wrap.open ~ .pdflex-topbar-inner .pdflex-nav {
+  transform: translateX(96px);
 }
-.pdflex-navitem.active {
-  color: var(--accent);
-  background: var(--accent-soft);
-  border-left-color: var(--accent);
+
+.pdflex-navtab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 30px;
+  border-radius: 999px;
+  font-size: 15px;
   font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  background: var(--surface);
+  color: var(--ink-dim);
+  box-shadow: 0 3px 8px rgba(46, 44, 38, 0.08);
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+.pdflex-navtab:hover {
+  color: var(--acento);
+}
+.pdflex-navtab.active {
+  background: var(--tono2);
+  color: var(--acento);
+  box-shadow: 0 4px 10px rgba(46, 44, 38, 0.12);
 }
 
+/* Cuerpo de las pantallas internas (ya no hay sidebar: el header pasó a
+   contener la navegación en pestañas). */
 .pdflex-main {
-  flex: 1;
-  padding: 2rem 2.25rem;
+  padding: 24px 32px 40px;
 }
 
-/* Pantallas de autenticación (login/registro) — sin sidebar, tarjeta centrada.
- * El maquetado completo de la tarjeta se hace en la Semana 3 (s3-f1); esto
- * solo deja el espacio y la marca ya ubicados. */
+/* Pantallas de autenticación (login/registro) — diseño "carpeta": una
+   tarjeta blanca flotante que se "abre" (animación 3D) para revelar el
+   formulario contrario, asomando detrás de una silueta de carpeta color
+   dorado. Del artifact aparte "PDFlex — Login carpeta" (11 sep 2026);
+   paleta y medidas tal como ese diseño las define. */
 .pdflex-auth-badge {
   z-index: 5;
 }
 
-/* Tarjeta de login / registro — Semana 3 (s3-f1), fiel al wireframe
- * "Login" (Main.dc.html): mismo tamaño, tipografía y espaciado, con
- * borde sólido (el punteado del wireframe es solo convención de boceto). */
-.pdflex-auth-card {
-  width: 440px;
+.pdflex-auth-stage {
+  position: relative;
+  width: 420px;
+  /* 580px, no 520px: la cara "Crear cuenta" tiene dos campos más que
+     "Iniciar sesión" y, al ser ambas caras position:absolute (necesario
+     para el volteo 3D), el contenedor no puede autoajustarse — así que se
+     dimensiona para la cara más alta y "Iniciar sesión" queda con algo
+     de aire de sobra debajo. */
+  height: 580px;
   max-width: 92vw;
-  background: var(--surface);
-  border: 1.5px solid var(--line-strong);
-  padding: 2.25rem 2.5rem 2.5rem;
+}
+
+/* Solapa de la carpeta (pestaña superior) */
+.pdflex-folder-tab {
+  position: absolute;
+  top: -34px;
+  left: 26px;
+  width: 150px;
+  height: 34px;
+  background: var(--carpeta-accent);
+  border-radius: 10px 10px 0 0;
+}
+
+/* Cuerpo de la carpeta, más ancho/alto que la tarjeta, asomando detrás */
+.pdflex-folder-body {
+  position: absolute;
+  top: -14px;
+  left: -14px;
+  right: -14px;
+  bottom: -14px;
+  background: var(--carpeta-accent);
+  border-radius: 16px;
+  box-shadow: 0 18px 32px rgba(43, 33, 24, 0.14);
+}
+
+.pdflex-flip-scene {
+  position: absolute;
+  inset: 0;
+  perspective: 1600px;
+}
+.pdflex-flip-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.75s cubic-bezier(0.4, 0.2, 0.2, 1);
+  transform-style: preserve-3d;
+}
+.pdflex-flip-inner.flipped {
+  transform: rotateX(-180deg);
+}
+.pdflex-flip-face {
+  position: absolute;
+  inset: 0;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 40px 70px rgba(43, 33, 24, 0.32), 0 14px 26px rgba(43, 33, 24, 0.2), 0 4px 8px rgba(43, 33, 24, 0.14);
+  padding: 34px 36px 32px;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+.pdflex-flip-face.back {
+  transform: rotateX(-180deg);
 }
 
 .pdflex-auth-title {
-  font-family: 'Playfair Display', Georgia, serif;
-  font-weight: 700;
-  font-size: 1.35rem;
+  font-size: 19px;
+  font-weight: 600;
+  text-align: center;
   color: var(--ink);
 }
 
 .pdflex-auth-subtitle {
-  font-size: 0.8rem;
+  font-size: 12.5px;
   color: var(--ink-dim);
-}
-
-.pdflex-auth-tabs {
-  display: flex;
-  margin: 1.6rem 0 1.4rem;
-  border: 1.5px solid var(--line-strong);
-}
-
-.pdflex-auth-tab {
-  flex: 1;
+  margin-top: 3px;
   text-align: center;
-  padding: 0.6rem 0;
-  font-size: 0.9rem;
-  text-decoration: none;
+}
+
+/* Pestañas "Iniciar sesión" / "Crear cuenta": dos píldoras independientes
+   (no un contenedor dividido) — la activa va rellena, la otra en contorno
+   y sirve de disparador para la animación de volteo. */
+.pdflex-pill {
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  font-family: 'Work Sans', sans-serif;
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 9px 22px;
+  background: var(--carpeta-accent);
+  color: var(--ink);
+  box-shadow: 0 6px 14px var(--carpeta-accent-shadow);
+}
+.pdflex-pill-outline {
+  background: #ffffff;
   color: var(--ink-dim);
+  border: 1.4px solid var(--line);
+  box-shadow: none;
 }
-.pdflex-auth-tab + .pdflex-auth-tab {
-  border-left: 1.5px solid var(--line-strong);
-}
-.pdflex-auth-tab.active {
-  background: var(--accent);
-  color: #fff;
-}
-.pdflex-auth-tab:hover:not(.active) {
-  background: var(--accent-soft);
-  color: var(--accent);
+.pdflex-pill-outline:hover {
+  border-color: var(--carpeta-accent);
+  color: var(--ink);
 }
 
 .pdflex-form-label {
   display: block;
-  font-size: 0.8rem;
+  font-size: 12px;
   color: var(--ink-dim);
-  margin-bottom: 0.35rem;
+  margin-bottom: 6px;
 }
 
-.pdflex-form-control {
+.pdflex-field {
   width: 100%;
-  padding: 0.65rem 0.75rem;
-  border: 1.5px solid var(--line-strong);
+  border-radius: 999px;
+  border: 1.4px solid var(--line);
   background: var(--surface);
-  font-size: 0.875rem;
+  padding: 12px 18px;
+  font-size: 13.5px;
   color: var(--ink);
-  margin-bottom: 1rem;
+  font-family: 'Work Sans', sans-serif;
+  margin-bottom: 14px;
 }
-.pdflex-form-control:focus {
+.pdflex-field:focus {
   outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  border-color: var(--carpeta-accent);
+  box-shadow: 0 0 0 3px rgba(240, 205, 94, 0.25);
 }
 
 .pdflex-auth-row {
-  margin-bottom: 1.4rem;
+  margin-bottom: 20px;
 }
 
 .pdflex-checkbox-label {
   display: flex;
   align-items: center;
-  gap: 0.45rem;
-  font-size: 0.8rem;
+  gap: 7px;
+  font-size: 12px;
   color: var(--ink-dim);
 }
 
 .pdflex-auth-link {
-  font-size: 0.8rem;
+  font-size: 12px;
   text-decoration: none;
 }
 
 .pdflex-btn-primary {
   width: 100%;
-  padding: 0.8rem 0;
-  background: var(--accent);
-  color: #fff;
+  padding: 13px 0;
+  border-radius: 999px;
+  background: var(--carpeta-accent);
+  color: var(--ink);
   border: none;
-  font-size: 1rem;
+  font-size: 14.5px;
+  font-weight: 600;
   cursor: pointer;
+  box-shadow: 0 8px 18px var(--carpeta-accent-shadow);
+  margin-top: auto;
 }
 .pdflex-btn-primary:hover {
-  background: #243e9e;
+  background: #eecb6b;
 }
 .pdflex-btn-primary:disabled {
   background: var(--line-strong);
+  color: var(--ink-dim);
+  box-shadow: none;
   cursor: not-allowed;
+}
+
+/* Botón "Procesar archivo" (pantalla Subir) — único elemento que usa el
+   Tono 6 (#BF7700), reservado para él según la solicitud del panel
+   principal; nada que ver con el dorado del Login, así que también
+   revierte la forma píldora y el margin-top:auto que trae .pdflex-btn-primary. */
+.pdflex-btn-procesar {
+  background: var(--tono6);
+  color: #ffffff;
+  text-transform: uppercase;
+  box-shadow: none;
+  border-radius: 10px;
+  margin-top: 0;
+}
+.pdflex-btn-procesar:hover {
+  background: #a66a00;
 }
 
 .pdflex-auth-footnote {
   text-align: center;
-  font-size: 0.72rem;
+  font-size: 11px;
   color: var(--ink-dim);
-  margin-top: 1.15rem;
+  margin-top: 16px;
 }
 
-/* Pantalla de subida — Semana 3 (s3-f2), fiel al wireframe "Subir archivo"
- * (Subida.dc.html): zona de arrastrar/soltar, tarjetas de operación y
- * validación visual (tipo de archivo, tamaño, operación elegida) en JS. */
+@media (max-height: 620px), (max-width: 480px) {
+  .pdflex-auth-stage {
+    height: auto;
+    min-height: 480px;
+  }
+  .pdflex-flip-face {
+    position: relative;
+    inset: auto;
+  }
+}
+
+/* ============================================================
+   Pantalla "Subir" — tarjetas flotantes, apartados en una sola
+   columna, nivel de compresión y botón "Procesar archivo".
+   ============================================================ */
 .pdflex-page-title {
   font-family: 'Playfair Display', Georgia, serif;
   font-weight: 700;
@@ -247,7 +487,7 @@ a:hover {
 
 .pdflex-upload-grid {
   display: flex;
-  gap: 1.75rem;
+  gap: 32px;
   align-items: flex-start;
   flex-wrap: wrap;
 }
@@ -255,10 +495,21 @@ a:hover {
   flex: 1 1 320px;
   min-width: 280px;
 }
+.pdflex-card {
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 0 10px 24px rgba(46, 44, 38, 0.10);
+  padding: 24px;
+}
+.pdflex-upload-col:first-child .pdflex-card {
+  width: 380px;
+  max-width: 100%;
+}
 
 .pdflex-dropzone {
   display: block;
-  border: 2px dashed var(--line-strong);
+  border: 1.6px dashed var(--line-strong);
+  border-radius: 10px;
   background: var(--surface);
   padding: 2.1rem 1.25rem;
   text-align: center;
@@ -271,8 +522,8 @@ a:hover {
   margin-bottom: 0.5rem;
 }
 .pdflex-dropzone.dragover {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+  border-color: var(--acento);
+  background: var(--tono2);
 }
 .pdflex-dropzone-text {
   font-size: 0.875rem;
@@ -288,7 +539,8 @@ a:hover {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  border: 1.5px solid var(--line-strong);
+  border: 1.4px solid var(--line-strong);
+  border-radius: 10px;
   background: var(--surface);
   padding: 0.6rem 0.85rem;
 }
@@ -315,7 +567,7 @@ a:hover {
   padding: 0.2rem;
 }
 .pdflex-file-remove:hover {
-  color: var(--accent);
+  color: var(--acento);
 }
 
 .pdflex-file-error {
@@ -325,69 +577,443 @@ a:hover {
 }
 
 .pdflex-op-label {
-  font-size: 0.85rem;
+  font-size: 13.5px;
   font-weight: 600;
-  margin-bottom: 0.6rem;
+  margin-bottom: 16px;
 }
+
+/* Cada apartado va en una sola columna, uno debajo del otro (nunca lado a
+   lado). ".pdflex-opgroup" es la fila completa (48px, radio 10px); dentro
+   van uno o dos ".pdflex-opcard" (Unir/Dividir comparten fila, divididos
+   por una línea interna) y un ".pdflex-op-icon" topado al borde derecho. */
 .pdflex-op-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.6rem;
-  margin-bottom: 1rem;
-}
-.pdflex-opcard {
-  border: 1.5px solid var(--line-strong);
-  background: var(--surface);
-  padding: 0.95rem 0.7rem;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 0.45rem;
-  text-align: center;
-  font-size: 0.78rem;
-  color: var(--ink);
-  cursor: pointer;
+  gap: 10px;
+  margin-bottom: 1rem;
 }
-.pdflex-opcard:hover {
-  border-color: var(--accent);
+.pdflex-opgroup {
+  display: flex;
+  align-items: stretch;
+  height: 48px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.pdflex-opcard {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding-left: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: none;
+  background: #ffffff;
+  color: var(--ink);
+  text-align: left;
 }
 .pdflex-opcard.selected {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: var(--tono2);
+  color: var(--acento);
+}
+.pdflex-op-divider {
+  width: 1px;
+  align-self: center;
+  height: 24px;
+  background: var(--line-strong);
+}
+.pdflex-op-icon {
+  width: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--paper);
+  color: var(--acento);
 }
 
 .pdflex-compression-panel {
-  border: 1.5px solid var(--line-strong);
-  background: var(--surface);
-  padding: 0.9rem 1rem;
-  margin-bottom: 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 .pdflex-compression-label {
-  font-size: 0.8rem;
+  text-align: center;
+  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   color: var(--ink-dim);
-  margin-bottom: 0.5rem;
+  text-shadow: 2px 3px 8px rgba(46, 44, 38, 0.35);
 }
 .pdflex-level-group {
   display: flex;
-  gap: 0.5rem;
+  gap: 10px;
 }
 .pdflex-level-btn {
-  padding: 0.4rem 0.9rem;
-  border: 1.5px solid var(--line-strong);
-  background: var(--surface);
-  font-size: 0.78rem;
-  color: var(--ink-dim);
+  flex: 1;
+  height: 48px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   cursor: pointer;
+  border: none;
+  background: #ffffff;
+  color: var(--ink);
 }
 .pdflex-level-btn.selected {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: var(--tono2);
+  color: var(--acento);
 }
 
 @media (max-width: 640px) {
-  .pdflex-op-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .pdflex-opgroup {
+    height: auto;
+    min-height: 48px;
+  }
+}
+
+/* ============================================================
+   Pantalla "Historial" — buscador + filtro y tabla coloreada
+   por estado (ver solicitud "Historial de conversiones").
+   ============================================================ */
+.pdflex-hist-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #2E2C26;
+  text-shadow: 0 1px 2px rgba(46, 44, 38, 0.15);
+}
+.pdflex-hist-subtitle {
+  font-size: 13px;
+  color: #6E6E6E;
+  text-shadow: 0 1px 2px rgba(46, 44, 38, 0.15);
+  margin-top: 4px;
+}
+
+.pdflex-hist-toolbar {
+  margin: 16px 0 0;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.pdflex-hist-search {
+  flex: 1;
+  min-width: 220px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 4px 10px rgba(46, 44, 38, 0.08);
+  padding: 12px 16px;
+  border: none;
+}
+.pdflex-hist-search svg {
+  flex-shrink: 0;
+  color: #9A9086;
+}
+.pdflex-hist-search input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 13.5px;
+  color: var(--ink);
+  outline: none;
+}
+.pdflex-hist-search input::placeholder {
+  color: #9A9086;
+}
+.pdflex-hist-filter {
+  width: 220px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 4px 10px rgba(46, 44, 38, 0.08);
+  padding: 12px 16px;
+  border: none;
+  color: #9A9086;
+  font-size: 13.5px;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239A9086' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+}
+
+.pdflex-hist-tablecard {
+  margin-top: 16px;
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 0 10px 24px rgba(46, 44, 38, 0.10);
+  padding: 20px;
+}
+.pdflex-hist-row {
+  display: grid;
+  grid-template-columns: 2fr 1.2fr 1.4fr 1fr 1fr;
+  gap: 8px;
+}
+.pdflex-hist-head {
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.pdflex-hist-head > div {
+  font-size: 12px;
+  font-weight: 700;
+  color: #6E6E6E;
+}
+.pdflex-hist-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+.pdflex-hist-data {
+  align-items: center;
+  border-radius: 8px;
+  padding: 14px;
+}
+.pdflex-hist-data > div {
+  font-size: 13px;
+  font-weight: 400;
+}
+.pdflex-hist-data .pdflex-hist-file,
+.pdflex-hist-data .pdflex-hist-action {
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* Éxito — Tono 1, crema marfil (texto oscuro) */
+.pdflex-hist-data.exito {
+  background: var(--tono1);
+  color: #2E2C26;
+}
+.pdflex-hist-data.exito > div { color: #2E2C26; }
+/* Error — Tono 6, ámbar oscuro (texto blanco por contraste) */
+.pdflex-hist-data.error {
+  background: var(--tono6);
+  color: #ffffff;
+}
+.pdflex-hist-data.error > div { color: #ffffff; }
+/* Pendiente/procesando — no cubierto en la solicitud original (que solo
+   define "Completado" y "Error"); se deja un tono neutro de espera hasta
+   que el equipo confirme si necesita su propio tratamiento. */
+.pdflex-hist-data.neutral {
+  background: var(--paper);
+  color: var(--ink);
+}
+.pdflex-hist-data.neutral > div { color: var(--ink); }
+
+.pdflex-hist-empty {
+  padding: 28px 14px;
+  text-align: center;
+  font-size: 13.5px;
+  color: var(--ink-dim);
+}
+
+@media (max-width: 720px) {
+  .pdflex-hist-row {
+    grid-template-columns: 1fr;
+  }
+  .pdflex-hist-head {
+    display: none;
+  }
+  .pdflex-hist-data {
+    gap: 2px;
+  }
+}
+
+/* ============================================================
+   Estado de procesos — tarjeta por archivo, coloreada según su
+   estado. Mockup "Estado de tus procesos" (14 sep 2026): reutiliza
+   los mismos Tonos que Historial (1 = completado, 6 = error) y
+   suma el azul --estado-progreso solo para la señal "En curso".
+   ============================================================ */
+.pdflex-estado-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.pdflex-estado-subtitle {
+  font-size: 14px;
+  color: var(--ink-dim);
+  margin: 4px 0 20px;
+}
+
+.pdflex-estado-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pdflex-estado-empty {
+  padding: 40px;
+  text-align: center;
+  font-size: 13.5px;
+  color: var(--ink-dim);
+  background: var(--surface);
+  border-radius: 14px;
+}
+
+.pdflex-estado-card {
+  border-radius: 14px;
+  padding: 20px 24px;
+  background: var(--surface);
+  box-shadow: 0 6px 16px rgba(46, 44, 38, 0.06);
+}
+/* Completado — Tono 1, igual que la fila "éxito" de Historial. */
+.pdflex-estado-card.completado {
+  background: var(--tono1);
+  color: #2E2C26;
+}
+/* Error — Tono 6, igual que la fila "error" de Historial (texto blanco). */
+.pdflex-estado-card.error {
+  background: var(--tono6);
+  color: #ffffff;
+}
+
+.pdflex-estado-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pdflex-estado-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pdflex-estado-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--estado-progreso);
+}
+.pdflex-estado-card.completado .pdflex-estado-icon {
+  color: #2E2C26;
+}
+.pdflex-estado-card.error .pdflex-estado-icon {
+  color: #ffffff;
+}
+.pdflex-estado-card.en_curso .pdflex-estado-icon svg {
+  animation: pdflex-estado-spin 1s linear infinite;
+  transform-origin: center;
+}
+@keyframes pdflex-estado-spin {
+  to { transform: rotate(360deg); }
+}
+
+.pdflex-estado-nombre {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pdflex-estado-separador {
+  color: var(--ink-dim);
+}
+.pdflex-estado-card.error .pdflex-estado-separador {
+  color: rgba(255, 255, 255, 0.7);
+}
+.pdflex-estado-operacion {
+  color: var(--ink-dim);
+  white-space: nowrap;
+}
+.pdflex-estado-card.error .pdflex-estado-operacion {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Insignia "En curso": única pieza de la pantalla con el azul --estado-progreso. */
+.pdflex-estado-badge {
+  flex-shrink: 0;
+  background: var(--estado-progreso-bg);
+  color: var(--estado-progreso);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 14px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.pdflex-estado-label {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.pdflex-estado-progress {
+  margin-top: 14px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+.pdflex-estado-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--estado-progreso);
+  transition: width 0.4s ease;
+}
+
+.pdflex-estado-sub {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+.pdflex-estado-card.completado .pdflex-estado-sub {
+  color: #6b5f4e;
+}
+.pdflex-estado-card.error .pdflex-estado-sub {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.pdflex-estado-btn {
+  margin-top: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 10px;
+  border: none;
+  background: var(--acento);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+.pdflex-estado-btn:hover {
+  background: #8a5805;
+}
+/* Botón "Reintentar" sobre la tarjeta de error: contorno blanco, sin relleno. */
+.pdflex-estado-btn-outline {
+  background: transparent;
+  border: 1.4px solid #ffffff;
+  border-radius: 999px;
+  color: #ffffff;
+}
+.pdflex-estado-btn-outline:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+@media (max-width: 620px) {
+  .pdflex-estado-row {
+    flex-wrap: wrap;
+  }
+  .pdflex-estado-operacion {
+    white-space: normal;
   }
 }

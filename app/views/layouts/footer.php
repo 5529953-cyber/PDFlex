@@ -1,7 +1,6 @@
 <?php $layout = $layout ?? 'app'; ?>
 <?php if ($layout === 'app'): ?>
-    </main>
-  </div>
+  </main>
 <?php else: ?>
   </div>
 <?php endif; ?>

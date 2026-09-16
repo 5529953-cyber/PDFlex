@@ -1,18 +1,16 @@
 <?php
 /**
  * Header compartido. Dos modos, elegidos por Controller::vista($ruta, $datos, $layout):
- *  - "app"  (por defecto): pantallas internas — barra superior + sidebar (Subir/Historial/Estado).
- *  - "auth": login/registro — sin sidebar, solo la marca arriba a la izquierda
- *            (el maquetado de la tarjeta de login se hace en la Semana 3, s3-f1).
+ *  - "app"  (por defecto): pantallas internas — barra flotante con logo
+ *            y pestañas (Subir/Historial/Estado).
+ *            Rediseño cálido (mostaza/beige) aplicado según la solicitud
+ *            "Interfaz completa del Panel Principal" (13 sep 2026).
+ *  - "auth": login/registro — sin barra de pestañas, solo la insignia de
+ *            marca arriba a la izquierda.
  *
- * $activo (opcional, solo layout "app"): 'subir' | 'historial' | 'estado' — resalta el ítem del sidebar.
+ * $activo (opcional, solo layout "app"): 'subir' | 'historial' | 'estado' — resalta la pestaña activa.
  */
 $layout = $layout ?? 'app';
-
-$logoSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-    . '<path d="M6 3h9l5 5v12a1.3 1.3 0 0 1-1.3 1.3H6A1.3 1.3 0 0 1 4.7 20V4.3A1.3 1.3 0 0 1 6 3z"></path>'
-    . '<path d="M15 3v5h5z" fill="currentColor" stroke="none"></path>'
-    . '</svg>';
 ?>
 <!doctype html>
 <html lang="es">
@@ -28,44 +26,55 @@ $logoSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="
 <?php if ($layout === 'app'): ?>
 
   <header class="pdflex-topbar">
-    <div class="d-flex align-items-center gap-2">
-      <span class="pdflex-badge"><?= $logoSvg ?></span>
-      <span class="pdflex-logo">PDFlex</span>
+    <!-- El menú de cuenta (Ver perfil / Cerrar sesión) vive dentro del logo:
+         al pasar el cursor, junto con el nombre "PDFlex" que se desliza al
+         lado, este menú aparece desplegado debajo, con sombra flotante.
+         En pantallas táctiles (sin cursor) el mismo estado se abre al tocar
+         el ícono, con la clase "open" que alterna app.js. -->
+    <div class="pdflex-logo-wrap" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false">
+      <span class="pdflex-logo-clip">
+        <span class="pdflex-logo-ring-outer">
+          <span class="pdflex-logo-ring-inner"></span>
+        </span>
+      </span>
+      <span class="pdflex-logo-name"><span>PDFlex</span></span>
+      <div class="pdflex-logo-menu" role="menu">
+        <a href="#" role="menuitem">Ver perfil</a>
+        <a href="<?= BASE_URL ?>/logout" role="menuitem">Cerrar sesión</a>
+      </div>
     </div>
-    <div class="d-flex align-items-center gap-2">
-      <span class="pdflex-avatar"><?= strtoupper(substr($_SESSION['usuario']['nombre'] ?? 'U', 0, 1)) ?></span>
-      <span class="text-body-secondary small"><?= htmlspecialchars($_SESSION['usuario']['nombre'] ?? 'Usuario') ?></span>
-      <a href="<?= BASE_URL ?>/logout" title="Cerrar sesión" class="text-body-secondary d-flex">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="M16 17l5-5-5-5"></path><path d="M21 12H9"></path></svg>
-      </a>
-    </div>
-  </header>
 
-  <div class="pdflex-shell">
-    <nav class="pdflex-sidebar">
+    <div class="pdflex-topbar-inner">
+      <span class="pdflex-logo-spacer"></span>
       <?php
       $navItems = [
           'subir'     => ['url' => '/subir',     'texto' => 'Subir',     'icono' => '<path d="M12 16V4"></path><path d="M6 10l6-6 6 6"></path><path d="M4 20h16"></path>'],
           'historial' => ['url' => '/historial', 'texto' => 'Historial', 'icono' => '<circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5V12l3 2"></path>'],
           'estado'    => ['url' => '/estado',     'texto' => 'Estado',    'icono' => '<path d="M3 12h4l2.5-7L13 19l2.5-7H21"></path>'],
       ];
-      foreach ($navItems as $clave => $item):
-          $claseActiva = ($activo ?? '') === $clave ? ' active' : '';
       ?>
-        <a href="<?= BASE_URL . $item['url'] ?>" class="pdflex-navitem<?= $claseActiva ?>">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><?= $item['icono'] ?></svg>
-          <?= $item['texto'] ?>
-        </a>
-      <?php endforeach; ?>
-    </nav>
-    <main class="pdflex-main">
+      <nav class="pdflex-nav">
+        <?php foreach ($navItems as $clave => $item):
+            $claseActiva = ($activo ?? '') === $clave ? ' active' : '';
+        ?>
+          <a href="<?= BASE_URL . $item['url'] ?>" class="pdflex-navtab<?= $claseActiva ?>">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><?= $item['icono'] ?></svg>
+            <?= $item['texto'] ?>
+          </a>
+        <?php endforeach; ?>
+      </nav>
+    </div>
+  </header>
+
+  <main class="pdflex-main">
 
 <?php else: /* layout "auth" */ ?>
 
-  <div class="pdflex-auth-badge position-absolute top-0 start-0 m-4 d-flex align-items-center gap-2">
-    <span class="pdflex-badge"><?= $logoSvg ?></span>
-    <span class="pdflex-logo">PDFlex</span>
+  <div class="pdflex-auth-badge position-absolute" style="top:32px;left:44px;">
+    <span class="pdflex-auth-ring-outer">
+      <span class="pdflex-auth-ring-inner"><span>PDFlex</span></span>
+    </span>
   </div>
-  <div class="d-flex align-items-center justify-content-center" style="min-height:100vh;">
+  <div class="d-flex align-items-center justify-content-center" style="min-height:100vh;background:var(--paper);">
 
 <?php endif; ?>
