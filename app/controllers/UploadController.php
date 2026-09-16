@@ -9,15 +9,12 @@ class UploadController extends Controller
     private const EXTENSION_PERMITIDA = 'pdf';
     private const TAMANO_MAXIMO_BYTES = 20 * 1024 * 1024; // 20 MB (requisito no funcional del anteproyecto)
 
-    // "union_division" queda afuera a propósito: la pantalla de Marvin la
-    // junta en un solo botón, pero la base de datos tiene "union" y
-    // "division" como valores separados, y además "unir" necesita subir
-    // varios archivos (este formulario solo permite uno). Se resuelve
-    // en Semana 5 junto con el diseño de esa pantalla.
     private const OPERACIONES_VALIDAS = [
         'conversion_pdf_word',
         'conversion_pdf_imagen',
         'compresion',
+        'union',
+        'division',
         'ocr',
     ];
 
@@ -57,15 +54,14 @@ class UploadController extends Controller
         // 4. Validar la operación elegida
         $tipoOperacion = $_POST['operacion'] ?? '';
 
-        if ($tipoOperacion === 'union_division') {
-            $this->vista('upload/subida', ['error' => 'Unir/Dividir estará disponible en la Semana 5.']);
-            return;
-        }
-
         if (!in_array($tipoOperacion, self::OPERACIONES_VALIDAS, true)) {
             $this->vista('upload/subida', ['error' => 'Elegí una operación válida.']);
             return;
         }
+
+        // Nota: "union" hoy solo se registra con el único archivo que este
+        // formulario permite subir. Cuando en Semana 5 se resuelva la subida
+        // de múltiples archivos para "Unir", este mismo flujo se extiende.
 
         // 5. Guardar el archivo con nombre único (para no pisar archivos de otros usuarios)
         $nombreFisico = uniqid('pdf_', true) . '.' . $extension;
@@ -84,8 +80,8 @@ class UploadController extends Controller
         ArchivoTemporal::registrar($historialId, $rutaDestino, $fechaExpiracion);
 
         // TODO (Backend, Semana 4/5): disparar el módulo real según $tipoOperacion
-        // (conversión, compresión, OCR) y actualizar el estado con
-        // Historial::actualizarEstado() cuando termine.
+        // (conversión, compresión, unión/división, OCR) y actualizar el estado
+        // con Historial::actualizarEstado() cuando termine.
 
         $this->redirigir('/estado');
     }
