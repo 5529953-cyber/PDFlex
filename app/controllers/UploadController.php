@@ -3,6 +3,8 @@
  * Pantalla de subida de archivos y elección de operación
  * (convertir, comprimir, unir/dividir, OCR).
  */
+require_once __DIR__ . '/../core/ProcesadorPDF.php';
+
 class UploadController extends Controller
 {
     private const TIPO_MIME_PERMITIDO = 'application/pdf';
@@ -79,9 +81,56 @@ class UploadController extends Controller
         $fechaExpiracion = date('Y-m-d H:i:s', strtotime('+24 hours'));
         ArchivoTemporal::registrar($historialId, $rutaDestino, $fechaExpiracion);
 
-        // TODO (Backend, Semana 4/5): disparar el módulo real según $tipoOperacion
-        // (conversión, compresión, unión/división, OCR) y actualizar el estado
-        // con Historial::actualizarEstado() cuando termine.
+        // 8. Disparar el procesamiento real según la operación elegida.
+        // Solo cubrimos conversion_pdf_word, conversion_pdf_imagen y compresion
+        // por ahora; union/division/ocr quedan pendientes (Semana 5).
+        $carpetaProcessed = __DIR__ . '/../../storage/processed/';
+
+        try {
+            Historial::actualizarEstado($historialId, 'procesando');
+
+            $rutaResultado = null;
+
+            switch ($tipoOperacion) {
+                case 'conversion_pdf_word':
+                    $rutaResultado = ProcesadorPDF::pdfAWord($rutaDestino, $carpetaProcessed);
+                    break;
+
+                case 'conversion_pdf_imagen':
+                    $rutaResultado = ProcesadorPDF::pdfAImagen($rutaDestino, $carpetaProcessed);
+                    break;
+
+                case 'compresion':
+                    $nombreComprimido = uniqid('comprimido_', true) . '.pdf';
+                    $rutaSalida = $carpetaProcessed . $nombreComprimido;
+                    $rutaResultado = ProcesadorPDF::comprimir($rutaDestino, $rutaSalida);
+                    break;
+
+                default:
+                    // union / division / ocr: todavía no implementado.
+                    // Lo dejamos en estado "pendiente" para no marcar error
+                    // por algo que sabemos que falta.
+                    $this->redirigir('/estado');
+                    return;
+            }
+
+            // 9. Guardar el resultado y marcar como completado
+            $tamanoOriginalKb = (int) round($archivo['size'] / 1024);
+            $tamanoResultadoKb = (int) round(filesize($rutaResultado) / 1024);
+
+            Historial::guardarResultado(
+                $historialId,
+                basename($rutaResultado),
+                $tamanoOriginalKb,
+                $tamanoResultadoKb
+            );
+            Historial::actualizarEstado($historialId, 'completado');
+
+            // 10. Rastrear también el archivo generado, para que se borre igual que el original
+            ArchivoTemporal::registrar($historialId, $rutaResultado, $fechaExpiracion);
+        } catch (Exception $e) {
+            Historial::actualizarEstado($historialId, 'error', $e->getMessage());
+        }
 
         $this->redirigir('/estado');
     }

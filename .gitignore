@@ -1,6 +1,7 @@
 # Credenciales locales — cada quien tiene las suyas
 /config/database.php
 /config/config.php
+/config/herramientas.php
 
 # Archivos que suben los usuarios (no van al repo)
 /storage/uploads/*
