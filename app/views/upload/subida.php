@@ -8,8 +8,33 @@
      se mantienen exactamente iguales — solo cambia el estilo visual.
      El procesamiento real (mover archivo, registrar en `historial`, disparar
      el módulo elegido) es Backend: s3-b2 en adelante (s4-b1/b2 conversión y
-     compresión, s5-b1 unión/división, s5-b2 OCR). -->
+     compresión, s5-b1 unión/división, s5-b2 OCR).
+
+     Selector visual de páginas (s5-f1): al elegir "Unir" o "Dividir" aparece,
+     debajo del dropzone, un panel con miniaturas REALES de las páginas del
+     PDF (leídas en el navegador con pdf.js, sin tocar Backend):
+       - "Unir": el input de archivo pasa a admitir varios PDFs a la vez
+         (name="archivos[]"); cada uno se muestra como una tarjeta con su
+         primera página de miniatura, reordenable (arrastrando o con las
+         flechas), y el orden visual se refleja en el FileList real del
+         input antes de enviar el formulario.
+       - "Dividir": se mantiene un solo archivo (name="archivo" de siempre);
+         se listan todas sus páginas en una cuadrícula y el usuario elige
+         cuáles incluir. La selección viaja en el input oculto
+         "paginas_seleccionadas" (números separados por coma, ej. "1,3,4").
+     TODO (Backend, s5-b1): leer $_FILES['archivos'] (arreglo) cuando
+     $_POST['operacion'] === 'union', en vez de $_FILES['archivo']; y leer
+     $_POST['paginas_seleccionadas'] cuando sea "division". -->
 <?php $error = $error ?? null; ?>
+
+<!-- pdf.js (versión con build clásico, expone window.pdfjsLib) — solo se usa
+     en esta pantalla, por eso no está en el layout compartido. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+</script>
 
 <div class="pdflex-page-head">
   <h1 class="pdflex-page-title">Subir un archivo</h1>
@@ -47,6 +72,34 @@
       </div>
 
       <div class="pdflex-file-error" id="fileError" hidden></div>
+
+      <!-- Unir (s5-f1): lista de archivos con miniatura de su primera
+           página, reordenable. app.js la llena/oculta según la operación
+           elegida y los archivos que se vayan agregando. -->
+      <div class="pdflex-union-panel" id="unionPanel" hidden>
+        <div class="pdflex-union-header">
+          <span>Archivos a unir</span>
+          <button type="button" class="pdflex-union-add" id="unionAdd">+ Agregar otro PDF</button>
+        </div>
+        <div class="pdflex-union-items" id="unionItems"></div>
+        <div class="pdflex-union-hint" id="unionHint"></div>
+      </div>
+
+      <!-- Dividir (s5-f1): cuadrícula con todas las páginas del PDF elegido;
+           el usuario marca cuáles quiere incluir en el resultado. -->
+      <div class="pdflex-division-panel" id="divisionPanel" hidden>
+        <div class="pdflex-division-header">
+          <span>Elige qué páginas incluir</span>
+          <span class="pdflex-division-actions">
+            <button type="button" id="divisionTodas">Seleccionar todas</button>
+            ·
+            <button type="button" id="divisionNinguna">Ninguna</button>
+          </span>
+        </div>
+        <div class="pdflex-division-grid" id="divisionGrid"></div>
+        <div class="pdflex-division-hint" id="divisionHint"></div>
+        <input type="hidden" name="paginas_seleccionadas" id="paginasInput" value="">
+      </div>
     </div>
   </div>
 

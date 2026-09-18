@@ -544,6 +544,13 @@ a:hover {
   background: var(--surface);
   padding: 0.6rem 0.85rem;
 }
+/* Sin esto, el atributo "hidden" no gana contra ".pdflex-file-row" (misma
+   especificidad, pero la regla del autor le gana a la del navegador) y la
+   fila queda visible —vacía— aunque JS le haya puesto "hidden". Mismo bug
+   que se encontró y corrigió en ".pdflex-preview-overlay" (s4-f2). */
+.pdflex-file-row[hidden] {
+  display: none;
+}
 .pdflex-file-info {
   flex: 1;
   min-width: 0;
@@ -639,6 +646,12 @@ a:hover {
   flex-direction: column;
   gap: 10px;
 }
+/* Mismo bug de especificidad que ".pdflex-file-row[hidden]" (ver arriba):
+   sin esto, este panel queda visible siempre, sin importar la operación
+   elegida, porque "display: flex" le gana a "[hidden]" del navegador. */
+.pdflex-compression-panel[hidden] {
+  display: none;
+}
 .pdflex-compression-label {
   text-align: center;
   text-transform: uppercase;
@@ -678,6 +691,198 @@ a:hover {
     height: auto;
     min-height: 48px;
   }
+}
+
+/* ============================================================
+   Selector visual de páginas — Unir / Dividir (s5-f1)
+   Miniaturas reales renderizadas con pdf.js directo en el navegador.
+   ============================================================ */
+.pdflex-union-panel,
+.pdflex-division-panel {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1.4px dashed var(--line-strong);
+}
+
+.pdflex-union-header,
+.pdflex-division-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 0.7rem;
+}
+
+.pdflex-union-add {
+  background: none;
+  border: none;
+  color: var(--acento);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.15rem 0.3rem;
+}
+.pdflex-union-add:hover {
+  text-decoration: underline;
+}
+
+.pdflex-division-actions {
+  font-weight: 400;
+  color: var(--ink-dim);
+  font-size: 0.75rem;
+}
+.pdflex-division-actions button {
+  background: none;
+  border: none;
+  color: var(--acento);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.75rem;
+}
+.pdflex-division-actions button:hover {
+  text-decoration: underline;
+}
+
+.pdflex-union-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pdflex-union-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border: 1.4px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 0.45rem 0.6rem;
+  cursor: grab;
+}
+.pdflex-union-item.pdflex-dragging {
+  opacity: 0.45;
+}
+.pdflex-union-item.pdflex-drop-target {
+  border-color: var(--acento);
+  background: var(--tono2);
+}
+
+.pdflex-union-drag {
+  color: var(--ink-dim);
+  flex-shrink: 0;
+  display: flex;
+}
+
+.pdflex-union-thumb {
+  width: 44px;
+  height: 58px;
+  flex-shrink: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: #fff;
+  object-fit: cover;
+}
+
+.pdflex-union-info {
+  flex: 1;
+  min-width: 0;
+}
+.pdflex-union-name {
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pdflex-union-size {
+  font-size: 0.7rem;
+  color: var(--ink-dim);
+}
+
+.pdflex-union-order-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.pdflex-union-order-btns button,
+.pdflex-union-remove {
+  background: none;
+  border: none;
+  color: var(--ink-dim);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.1rem;
+}
+.pdflex-union-order-btns button:hover,
+.pdflex-union-remove:hover {
+  color: var(--acento);
+}
+.pdflex-union-order-btns button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.pdflex-union-hint,
+.pdflex-division-hint {
+  font-size: 0.75rem;
+  color: var(--ink-dim);
+  margin-top: 0.5rem;
+}
+
+.pdflex-division-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 10px;
+}
+
+.pdflex-division-page {
+  position: relative;
+  border: 1.6px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 5px;
+  cursor: pointer;
+  text-align: center;
+}
+.pdflex-division-page.seleccionada {
+  border-color: var(--acento);
+  background: var(--tono2);
+}
+.pdflex-division-page canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+  border: 1px solid var(--line-strong);
+  background: #fff;
+}
+.pdflex-division-page-num {
+  font-size: 0.68rem;
+  color: var(--ink-dim);
+  margin-top: 3px;
+}
+.pdflex-division-page.seleccionada .pdflex-division-page-num {
+  color: var(--acento);
+  font-weight: 600;
+}
+.pdflex-division-check {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--acento);
+  color: #fff;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.pdflex-division-page.seleccionada .pdflex-division-check {
+  display: flex;
 }
 
 /* ============================================================
@@ -1007,6 +1212,111 @@ a:hover {
 }
 .pdflex-estado-btn-outline:hover {
   background: rgba(255, 255, 255, 0.14);
+}
+
+/* Fila de acciones de la tarjeta "Completado": Vista previa + Descargar
+   uno al lado del otro (s4-f2). */
+.pdflex-estado-actions {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.pdflex-estado-actions .pdflex-estado-btn {
+  margin-top: 0;
+}
+/* Botón "Vista previa": secundario, contorno oscuro suave (la tarjeta
+   "Completado" tiene fondo claro, a diferencia de la de error). */
+.pdflex-estado-btn-secundario {
+  background: transparent;
+  border: 1.4px solid var(--line-strong);
+  color: #2E2C26;
+}
+.pdflex-estado-btn-secundario:hover {
+  background: rgba(46, 44, 38, 0.06);
+  border-color: #2E2C26;
+}
+
+/* ============================================================
+   Modal de vista previa (s4-f2) — una sola instancia compartida
+   por todas las tarjetas de Estado; app.js llena nombre/operación
+   y la muestra al hacer clic en "Vista previa". Maqueta fija por
+   ahora: el archivo real todavía no está conectado (Backend).
+   ============================================================ */
+.pdflex-preview-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(43, 33, 24, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 100;
+}
+.pdflex-preview-overlay[hidden] {
+  display: none;
+}
+.pdflex-preview-modal {
+  position: relative;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 40px 70px rgba(43, 33, 24, 0.32), 0 14px 26px rgba(43, 33, 24, 0.2);
+  padding: 28px 26px 26px;
+  width: 420px;
+  max-width: 100%;
+  max-height: 85vh;
+  overflow: auto;
+}
+.pdflex-preview-cerrar {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  color: var(--ink-dim);
+  cursor: pointer;
+}
+.pdflex-preview-cerrar:hover {
+  background: var(--paper);
+  color: var(--ink);
+}
+.pdflex-preview-header {
+  padding-right: 30px;
+  margin-bottom: 16px;
+}
+.pdflex-preview-nombre {
+  display: block;
+  font-weight: 700;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.pdflex-preview-operacion {
+  display: block;
+  font-size: 13px;
+  color: var(--ink-dim);
+  margin-top: 2px;
+}
+.pdflex-preview-placeholder {
+  border: 1.6px dashed var(--line-strong);
+  border-radius: 10px;
+  background: var(--paper);
+  padding: 46px 20px;
+  text-align: center;
+  color: var(--ink-dim);
+}
+.pdflex-preview-placeholder svg {
+  margin-bottom: 10px;
+}
+.pdflex-preview-placeholder p {
+  margin: 0;
+  font-size: 13.5px;
 }
 
 @media (max-width: 620px) {
