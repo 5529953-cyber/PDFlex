@@ -9,7 +9,7 @@ class UploadController extends Controller
 {
     private const TIPO_MIME_PERMITIDO = 'application/pdf';
     private const EXTENSION_PERMITIDA = 'pdf';
-    private const TAMANO_MAXIMO_BYTES = 20 * 1024 * 1024; // 20 MB (requisito no funcional del anteproyecto)
+    private const TAMANO_MAXIMO_BYTES = 20 * 1024 * 1024; // 20 MB por archivo
 
     private const OPERACIONES_VALIDAS = [
         'conversion_pdf_word',
@@ -30,30 +30,9 @@ class UploadController extends Controller
     {
         $this->requiereSesion();
 
-        // 1. ¿Llegó el archivo sin errores de subida?
-        if (empty($_FILES['archivo']) || $_FILES['archivo']['error'] !== UPLOAD_ERR_OK) {
-            $this->vista('upload/subida', ['error' => 'No se pudo subir el archivo. Intentá de nuevo.']);
-            return;
-        }
-
-        $archivo = $_FILES['archivo'];
-
-        // 2. Validar tamaño (hasta 20 MB)
-        if ($archivo['size'] > self::TAMANO_MAXIMO_BYTES) {
-            $this->vista('upload/subida', ['error' => 'El archivo supera el límite de 20 MB.']);
-            return;
-        }
-
-        // 3. Validar tipo real del archivo (no solo la extensión del nombre)
-        $tipoMime = mime_content_type($archivo['tmp_name']);
-        $extension = strtolower(pathinfo($archivo['name'], PATHINFO_EXTENSION));
-
-        if ($tipoMime !== self::TIPO_MIME_PERMITIDO || $extension !== self::EXTENSION_PERMITIDA) {
-            $this->vista('upload/subida', ['error' => 'Solo se permiten archivos PDF.']);
-            return;
-        }
-
-        // 4. Validar la operación elegida
+        // 1. Validar la operación elegida primero: define qué campo de
+        // $_FILES leer (Marvin, s5-f1: "archivos" para union, "archivo"
+        // para el resto, ver comentario en app/views/upload/subida.php).
         $tipoOperacion = $_POST['operacion'] ?? '';
 
         if (!in_array($tipoOperacion, self::OPERACIONES_VALIDAS, true)) {
@@ -61,30 +40,90 @@ class UploadController extends Controller
             return;
         }
 
-        // Nota: "union" hoy solo se registra con el único archivo que este
-        // formulario permite subir. Cuando en Semana 5 se resuelva la subida
-        // de múltiples archivos para "Unir", este mismo flujo se extiende.
+        $campoArchivo = $tipoOperacion === 'union' ? 'archivos' : 'archivo';
+        $archivos = $this->normalizarArchivos($_FILES[$campoArchivo] ?? null);
 
-        // 5. Guardar el archivo con nombre único (para no pisar archivos de otros usuarios)
-        $nombreFisico = uniqid('pdf_', true) . '.' . $extension;
-        $rutaDestino = __DIR__ . '/../../storage/uploads/' . $nombreFisico;
-
-        if (!move_uploaded_file($archivo['tmp_name'], $rutaDestino)) {
-            $this->vista('upload/subida', ['error' => 'Error interno al guardar el archivo.']);
+        if (empty($archivos)) {
+            $this->vista('upload/subida', ['error' => 'No se pudo subir el archivo. Intentá de nuevo.']);
             return;
         }
 
-        // 6. Registrar la operación en el historial (tabla `historial`, estado "pendiente")
-        $historialId = Historial::registrar($_SESSION['usuario_id'], $tipoOperacion, $archivo['name']);
+        // 2. Reglas de cantidad según la operación
+        if ($tipoOperacion === 'union') {
+            if (count($archivos) < 2) {
+                $this->vista('upload/subida', ['error' => 'Para unir necesitás subir al menos 2 archivos.']);
+                return;
+            }
+        } elseif (count($archivos) > 1) {
+            $this->vista('upload/subida', ['error' => 'Esta operación admite un solo archivo.']);
+            return;
+        }
 
-        // 7. Rastrear el archivo físico para el borrado automático (expira en 24h)
+        // 3. Validar cada archivo individualmente
+        foreach ($archivos as $archivo) {
+            if ($archivo['error'] !== UPLOAD_ERR_OK) {
+                $this->vista('upload/subida', ['error' => 'No se pudo subir el archivo. Intentá de nuevo.']);
+                return;
+            }
+
+            if ($archivo['size'] > self::TAMANO_MAXIMO_BYTES) {
+                $this->vista('upload/subida', ['error' => 'Cada archivo debe pesar hasta 20 MB.']);
+                return;
+            }
+
+            $tipoMime = mime_content_type($archivo['tmp_name']);
+            $extension = strtolower(pathinfo($archivo['name'], PATHINFO_EXTENSION));
+
+            if ($tipoMime !== self::TIPO_MIME_PERMITIDO || $extension !== self::EXTENSION_PERMITIDA) {
+                $this->vista('upload/subida', ['error' => 'Solo se permiten archivos PDF.']);
+                return;
+            }
+        }
+
+        // 4. Para "división", validar que llegaron páginas seleccionadas
+        // ANTES de guardar nada (evita mover archivos si esto va a fallar).
+        $paginasSeleccionadas = trim($_POST['paginas_seleccionadas'] ?? '');
+        if ($tipoOperacion === 'division') {
+            if ($paginasSeleccionadas === '' || !preg_match('/^\d+(,\d+)*$/', $paginasSeleccionadas)) {
+                $this->vista('upload/subida', ['error' => 'Elegí al menos una página para dividir.']);
+                return;
+            }
+        }
+
+        // 5. Guardar todos los archivos con nombre único
+        $rutasGuardadas = [];
+        $nombresOriginales = [];
+
+        foreach ($archivos as $archivo) {
+            $extension = strtolower(pathinfo($archivo['name'], PATHINFO_EXTENSION));
+            $nombreFisico = uniqid('pdf_', true) . '.' . $extension;
+            $rutaDestino = __DIR__ . '/../../storage/uploads/' . $nombreFisico;
+
+            if (!move_uploaded_file($archivo['tmp_name'], $rutaDestino)) {
+                $this->vista('upload/subida', ['error' => 'Error interno al guardar el archivo.']);
+                return;
+            }
+
+            $rutasGuardadas[] = $rutaDestino;
+            $nombresOriginales[] = $archivo['name'];
+        }
+
+        // 6. Registrar la operación en el historial (tabla `historial`, estado "pendiente")
+        $nombreParaHistorial = count($nombresOriginales) > 1
+            ? $nombresOriginales[0] . ' (+' . (count($nombresOriginales) - 1) . ' más)'
+            : $nombresOriginales[0];
+
+        $historialId = Historial::registrar($_SESSION['usuario_id'], $tipoOperacion, $nombreParaHistorial);
+
+        // 7. Rastrear los archivos físicos originales para el borrado automático (expira en 24h)
         $fechaExpiracion = date('Y-m-d H:i:s', strtotime('+24 hours'));
-        ArchivoTemporal::registrar($historialId, $rutaDestino, $fechaExpiracion);
+        foreach ($rutasGuardadas as $ruta) {
+            ArchivoTemporal::registrar($historialId, $ruta, $fechaExpiracion);
+        }
 
         // 8. Disparar el procesamiento real según la operación elegida.
-        // Solo cubrimos conversion_pdf_word, conversion_pdf_imagen y compresion
-        // por ahora; union/division/ocr quedan pendientes (Semana 5).
         $carpetaProcessed = __DIR__ . '/../../storage/processed/';
+        $tamanoOriginalKb = (int) round(array_sum(array_map('filesize', $rutasGuardadas)) / 1024);
 
         try {
             Historial::actualizarEstado($historialId, 'procesando');
@@ -93,45 +132,91 @@ class UploadController extends Controller
 
             switch ($tipoOperacion) {
                 case 'conversion_pdf_word':
-                    $rutaResultado = ProcesadorPDF::pdfAWord($rutaDestino, $carpetaProcessed);
+                    $rutaResultado = ProcesadorPDF::pdfAWord($rutasGuardadas[0], $carpetaProcessed);
                     break;
 
                 case 'conversion_pdf_imagen':
-                    $rutaResultado = ProcesadorPDF::pdfAImagen($rutaDestino, $carpetaProcessed);
+                    $rutaResultado = ProcesadorPDF::pdfAImagen($rutasGuardadas[0], $carpetaProcessed);
                     break;
 
                 case 'compresion':
                     $nombreComprimido = uniqid('comprimido_', true) . '.pdf';
-                    $rutaSalida = $carpetaProcessed . $nombreComprimido;
-                    $rutaResultado = ProcesadorPDF::comprimir($rutaDestino, $rutaSalida);
+                    $rutaResultado = ProcesadorPDF::comprimir($rutasGuardadas[0], $carpetaProcessed . $nombreComprimido);
+                    break;
+
+                case 'union':
+                    $nombreUnido = uniqid('unido_', true) . '.pdf';
+                    $rutaResultado = ProcesadorPDF::unir($rutasGuardadas, $carpetaProcessed . $nombreUnido);
+                    break;
+
+                                case 'division':
+                    $nombreDividido = uniqid('dividido_', true) . '.pdf';
+                    $rutaResultado = ProcesadorPDF::dividir($rutasGuardadas[0], $paginasSeleccionadas, $carpetaProcessed . $nombreDividido);
+                    break;
+
+                case 'ocr':
+                    $nombreOcr = uniqid('ocr_', true) . '.pdf';
+                    $carpetaTemp = __DIR__ . '/../../storage/temp/';
+                    $rutaResultado = ProcesadorPDF::ocr($rutasGuardadas[0], $carpetaTemp, $carpetaProcessed . $nombreOcr);
                     break;
 
                 default:
-                    // union / division / ocr: todavía no implementado.
-                    // Lo dejamos en estado "pendiente" para no marcar error
-                    // por algo que sabemos que falta.
+                    // ocr: todavía no implementado.
                     $this->redirigir('/estado');
                     return;
             }
 
             // 9. Guardar el resultado y marcar como completado
-            $tamanoOriginalKb = (int) round($archivo['size'] / 1024);
             $tamanoResultadoKb = (int) round(filesize($rutaResultado) / 1024);
 
-            Historial::guardarResultado(
-                $historialId,
-                basename($rutaResultado),
-                $tamanoOriginalKb,
-                $tamanoResultadoKb
-            );
+            Historial::guardarResultado($historialId, basename($rutaResultado), $tamanoOriginalKb, $tamanoResultadoKb);
             Historial::actualizarEstado($historialId, 'completado');
 
-            // 10. Rastrear también el archivo generado, para que se borre igual que el original
+            // 10. Rastrear también el archivo generado
             ArchivoTemporal::registrar($historialId, $rutaResultado, $fechaExpiracion);
         } catch (Exception $e) {
             Historial::actualizarEstado($historialId, 'error', $e->getMessage());
         }
 
         $this->redirigir('/estado');
+    }
+
+    /**
+     * Normaliza un campo de $_FILES a una lista de archivos individuales,
+     * sin importar si vino como archivo único ("archivo") o como arreglo
+     * ("archivos[]", usado para Unir).
+     */
+    private function normalizarArchivos(?array $campoArchivo): array
+    {
+        if ($campoArchivo === null || empty($campoArchivo['name'])) {
+            return [];
+        }
+
+        if (is_array($campoArchivo['name'])) {
+            $archivos = [];
+            $cantidad = count($campoArchivo['name']);
+
+            for ($i = 0; $i < $cantidad; $i++) {
+                if ($campoArchivo['error'][$i] === UPLOAD_ERR_NO_FILE) {
+                    continue;
+                }
+
+                $archivos[] = [
+                    'name'     => $campoArchivo['name'][$i],
+                    'type'     => $campoArchivo['type'][$i],
+                    'tmp_name' => $campoArchivo['tmp_name'][$i],
+                    'error'    => $campoArchivo['error'][$i],
+                    'size'     => $campoArchivo['size'][$i],
+                ];
+            }
+
+            return $archivos;
+        }
+
+        if ($campoArchivo['error'] === UPLOAD_ERR_NO_FILE) {
+            return [];
+        }
+
+        return [$campoArchivo];
     }
 }

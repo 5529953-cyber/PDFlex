@@ -9,9 +9,9 @@
  * estado (ENUM: pendiente/procesando/completado/error), mensaje_error,
  * fecha_inicio, fecha_fin.
  *
- * TODO (Backend, s4-b1/s4-b2/s5-b1/s5-b2): usar `registrar()` y
- * `actualizarEstado()` desde cada módulo de procesamiento.
- * TODO (Backend, s6-b1): completar filtros (por operación, por fecha) en `porUsuario()`.
+ * s6-b1: porUsuario() soporta filtro por nombre de archivo (busqueda)
+ * y por tipo_operacion (operacion), ambos opcionales.
+ * s6-b2: recientes() y porId() para el panel de Estado (EstadoController).
  */
 class Historial
 {
@@ -46,13 +46,67 @@ class Historial
         $stmt->execute([$nombreArchivoResultado, $tamanoOriginalKb, $tamanoResultadoKb, $id]);
     }
 
-    public static function porUsuario(int $usuarioId): array
+    /**
+     * Trae el historial de un usuario, más nuevo primero. $busqueda filtra
+     * por nombre de archivo original (coincidencia parcial); $operacion
+     * filtra por tipo_operacion exacto (los mismos valores del ENUM:
+     * conversion_pdf_word, conversion_pdf_imagen, compresion, union,
+     * division, ocr). Ambos son opcionales — si vienen null o vacíos, no
+     * se aplican.
+     */
+    public static function porUsuario(int $usuarioId, ?string $busqueda = null, ?string $operacion = null): array
     {
         $pdo = Database::getConnection();
+
+        $sql = 'SELECT * FROM historial WHERE usuario_id = ?';
+        $parametros = [$usuarioId];
+
+        if ($busqueda !== null && $busqueda !== '') {
+            $sql .= ' AND nombre_archivo_original LIKE ?';
+            $parametros[] = '%' . $busqueda . '%';
+        }
+
+        if ($operacion !== null && $operacion !== '') {
+            $sql .= ' AND tipo_operacion = ?';
+            $parametros[] = $operacion;
+        }
+
+        $sql .= ' ORDER BY fecha_inicio DESC';
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($parametros);
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Los últimos $limite procesos de un usuario (para el panel de Estado).
+     * $limite es siempre un valor fijo puesto por el propio código (no
+     * viene de un input de usuario), así que interpolarlo directo en el
+     * LIMIT es seguro.
+     */
+    public static function recientes(int $usuarioId, int $limite = 10): array
+    {
+        $pdo = Database::getConnection();
+        $limite = max(1, $limite);
+
         $stmt = $pdo->prepare(
-            'SELECT * FROM historial WHERE usuario_id = ? ORDER BY fecha_inicio DESC'
+            "SELECT * FROM historial WHERE usuario_id = ? ORDER BY fecha_inicio DESC LIMIT {$limite}"
         );
         $stmt->execute([$usuarioId]);
         return $stmt->fetchAll();
+    }
+
+    /**
+     * Un registro puntual, pero SOLO si pertenece a $usuarioId — evita que
+     * alguien consulte el proceso de otro usuario adivinando el id
+     * (usado por EstadoController::consultar(), el endpoint de polling).
+     */
+    public static function porId(int $id, int $usuarioId): ?array
+    {
+        $pdo = Database::getConnection();
+        $stmt = $pdo->prepare('SELECT * FROM historial WHERE id = ? AND usuario_id = ? LIMIT 1');
+        $stmt->execute([$id, $usuarioId]);
+        $fila = $stmt->fetch();
+        return $fila !== false ? $fila : null;
     }
 }

@@ -42,13 +42,15 @@
           <?php endif; ?>
         </div>
 
-        <?php if ($estado === 'en_curso'):
-            $progreso = (int) ($proceso['progreso'] ?? 0);
-        ?>
-          <div class="pdflex-estado-progress">
-            <div class="pdflex-estado-progress-fill" style="width: <?= $progreso ?>%;"></div>
-          </div>
-          <div class="pdflex-estado-sub"><?= $progreso ?>% · tiempo estimado restante: <?= htmlspecialchars($proceso['restante'] ?? '—') ?></div>
+                <?php if ($estado === 'en_curso'): ?>
+          <?php if (isset($proceso['progreso'])): ?>
+            <div class="pdflex-estado-progress">
+              <div class="pdflex-estado-progress-fill" style="width: <?= (int) $proceso['progreso'] ?>%;"></div>
+            </div>
+            <div class="pdflex-estado-sub"><?= (int) $proceso['progreso'] ?>% · tiempo estimado restante: <?= htmlspecialchars($proceso['restante'] ?? '—') ?></div>
+          <?php else: ?>
+            <div class="pdflex-estado-sub">Procesando…</div>
+          <?php endif; ?>
 
         <?php elseif ($estado === 'completado'): ?>
           <div class="pdflex-estado-sub">Terminó <?= htmlspecialchars($proceso['terminado_hace'] ?? '') ?>.</div>
