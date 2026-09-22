@@ -128,43 +128,7 @@ class UploadController extends Controller
         try {
             Historial::actualizarEstado($historialId, 'procesando');
 
-            $rutaResultado = null;
-
-            switch ($tipoOperacion) {
-                case 'conversion_pdf_word':
-                    $rutaResultado = ProcesadorPDF::pdfAWord($rutasGuardadas[0], $carpetaProcessed);
-                    break;
-
-                case 'conversion_pdf_imagen':
-                    $rutaResultado = ProcesadorPDF::pdfAImagen($rutasGuardadas[0], $carpetaProcessed);
-                    break;
-
-                case 'compresion':
-                    $nombreComprimido = uniqid('comprimido_', true) . '.pdf';
-                    $rutaResultado = ProcesadorPDF::comprimir($rutasGuardadas[0], $carpetaProcessed . $nombreComprimido);
-                    break;
-
-                case 'union':
-                    $nombreUnido = uniqid('unido_', true) . '.pdf';
-                    $rutaResultado = ProcesadorPDF::unir($rutasGuardadas, $carpetaProcessed . $nombreUnido);
-                    break;
-
-                                case 'division':
-                    $nombreDividido = uniqid('dividido_', true) . '.pdf';
-                    $rutaResultado = ProcesadorPDF::dividir($rutasGuardadas[0], $paginasSeleccionadas, $carpetaProcessed . $nombreDividido);
-                    break;
-
-                case 'ocr':
-                    $nombreOcr = uniqid('ocr_', true) . '.pdf';
-                    $carpetaTemp = __DIR__ . '/../../storage/temp/';
-                    $rutaResultado = ProcesadorPDF::ocr($rutasGuardadas[0], $carpetaTemp, $carpetaProcessed . $nombreOcr);
-                    break;
-
-                default:
-                    // ocr: todavía no implementado.
-                    $this->redirigir('/estado');
-                    return;
-            }
+            $rutaResultado = $this->ejecutarOperacion($tipoOperacion, $rutasGuardadas, $carpetaProcessed, $paginasSeleccionadas);
 
             // 9. Guardar el resultado y marcar como completado
             $tamanoResultadoKb = (int) round(filesize($rutaResultado) / 1024);
@@ -179,6 +143,102 @@ class UploadController extends Controller
         }
 
         $this->redirigir('/estado');
+    }
+
+    /**
+     * GET /reintentar?id=<historial_id> — reintenta una operación que
+     * quedó en "error", reusando el archivo original ya guardado (no pide
+     * que se vuelva a subir). Actualiza el MISMO registro de historial
+     * (no crea uno nuevo).
+     *
+     * Unir y dividir quedan afuera del reintento automático: no hay forma
+     * segura de reconstruir el orden de varios archivos ni las páginas
+     * elegidas (no se guardan en ningún lado hoy), así que esos casos
+     * mandan al usuario de vuelta a /subir para que vuelva a elegir.
+     */
+    public function reintentar(): void
+    {
+        $this->requiereSesion();
+
+        $id = (int) ($_GET['id'] ?? 0);
+        $registro = Historial::porId($id, $_SESSION['usuario_id']);
+
+        if ($registro === null || $registro['estado'] !== 'error') {
+            $this->redirigir('/historial');
+            return;
+        }
+
+        $tipoOperacion = $registro['tipo_operacion'];
+
+        if (in_array($tipoOperacion, ['union', 'division'], true)) {
+            $this->redirigir('/subir');
+            return;
+        }
+
+        $archivosOriginales = ArchivoTemporal::porHistorial($id);
+
+        if (empty($archivosOriginales) || !file_exists($archivosOriginales[0]['ruta_archivo'])) {
+            http_response_code(410);
+            echo 'No se puede reintentar: el archivo original ya no está disponible (puede haber expirado). Subilo de nuevo desde "Subir archivo".';
+            exit;
+        }
+
+        $rutasEntrada = [$archivosOriginales[0]['ruta_archivo']];
+        $carpetaProcessed = __DIR__ . '/../../storage/processed/';
+        $tamanoOriginalKb = (int) round(filesize($rutasEntrada[0]) / 1024);
+
+        try {
+            Historial::actualizarEstado($id, 'procesando');
+
+            $rutaResultado = $this->ejecutarOperacion($tipoOperacion, $rutasEntrada, $carpetaProcessed);
+
+            $tamanoResultadoKb = (int) round(filesize($rutaResultado) / 1024);
+            Historial::guardarResultado($id, basename($rutaResultado), $tamanoOriginalKb, $tamanoResultadoKb);
+            Historial::actualizarEstado($id, 'completado');
+
+            $fechaExpiracion = date('Y-m-d H:i:s', strtotime('+24 hours'));
+            ArchivoTemporal::registrar($id, $rutaResultado, $fechaExpiracion);
+        } catch (Exception $e) {
+            Historial::actualizarEstado($id, 'error', $e->getMessage());
+        }
+
+        $this->redirigir('/estado');
+    }
+
+    /**
+     * Ejecuta la operación real contra ProcesadorPDF. Compartido por
+     * procesar() y reintentar() para no duplicar el switch.
+     */
+    private function ejecutarOperacion(string $tipoOperacion, array $rutasEntrada, string $carpetaProcessed, string $paginasSeleccionadas = ''): string
+    {
+        $carpetaTemp = __DIR__ . '/../../storage/temp/';
+
+        switch ($tipoOperacion) {
+            case 'conversion_pdf_word':
+                return ProcesadorPDF::pdfAWord($rutasEntrada[0], $carpetaProcessed);
+
+            case 'conversion_pdf_imagen':
+                return ProcesadorPDF::pdfAImagen($rutasEntrada[0], $carpetaProcessed);
+
+            case 'compresion':
+                $nombreComprimido = uniqid('comprimido_', true) . '.pdf';
+                return ProcesadorPDF::comprimir($rutasEntrada[0], $carpetaProcessed . $nombreComprimido);
+
+            case 'union':
+                $nombreUnido = uniqid('unido_', true) . '.pdf';
+                return ProcesadorPDF::unir($rutasEntrada, $carpetaProcessed . $nombreUnido);
+
+            case 'division':
+                $nombreDividido = uniqid('dividido_', true) . '.pdf';
+                return ProcesadorPDF::dividir($rutasEntrada[0], $paginasSeleccionadas, $carpetaProcessed . $nombreDividido);
+
+            case 'ocr':
+                $nombreOcr = uniqid('ocr_', true) . '.pdf';
+                return ProcesadorPDF::ocr($rutasEntrada[0], $carpetaTemp, $carpetaProcessed . $nombreOcr);
+
+            default:
+                throw new Exception('Operación no reconocida: ' . $tipoOperacion);
+        }
     }
 
     /**

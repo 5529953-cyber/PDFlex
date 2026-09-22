@@ -35,4 +35,23 @@ class Controller
             $this->redirigir('/login');
         }
     }
+
+    /**
+     * Envía un archivo real como descarga (headers de attachment + el
+     * contenido del archivo). Compartido por cualquier controlador que
+     * necesite servir una descarga (hoy: HistorialController::descargar()).
+     */
+    protected function descargarArchivo(string $rutaCompleta, string $nombreDescarga): void
+    {
+        $mime = mime_content_type($rutaCompleta) ?: 'application/octet-stream';
+        $nombreSeguro = str_replace(['"', '\\'], '', $nombreDescarga);
+
+        header('Content-Type: ' . $mime);
+        header('Content-Disposition: attachment; filename="' . $nombreSeguro . '"');
+        header('Content-Length: ' . filesize($rutaCompleta));
+        header('Cache-Control: no-cache, must-revalidate');
+
+        readfile($rutaCompleta);
+        exit;
+    }
 }

@@ -7,8 +7,8 @@
  * Columnas: id, historial_id (FK), ruta_archivo, fecha_creacion,
  * fecha_expiracion, eliminado (booleano).
  *
- * TODO (Backend, s6-b2): job de limpieza que recorra `expirados()`
- * y borre el archivo físico + marque `eliminado = 1`.
+ * TODO (Backend): job de limpieza que recorra `expirados()` y borre el
+ * archivo físico + marque `eliminado = 1`.
  */
 class ArchivoTemporal
 {
@@ -37,5 +37,20 @@ class ArchivoTemporal
         $pdo = Database::getConnection();
         $stmt = $pdo->prepare('UPDATE archivos_temporales SET eliminado = 1 WHERE id = ?');
         $stmt->execute([$id]);
+    }
+
+    /**
+     * Archivos (no eliminados) ligados a un historial_id, en el orden en
+     * que se guardaron. Usado por UploadController::reintentar() para
+     * recuperar el/los archivo(s) original(es) de una operación fallida.
+     */
+    public static function porHistorial(int $historialId): array
+    {
+        $pdo = Database::getConnection();
+        $stmt = $pdo->prepare(
+            'SELECT * FROM archivos_temporales WHERE historial_id = ? AND eliminado = 0 ORDER BY id ASC'
+        );
+        $stmt->execute([$historialId]);
+        return $stmt->fetchAll();
     }
 }

@@ -40,8 +40,10 @@ $router->get('/logout', ['AuthController', 'logout']);
 
 $router->get('/subir', ['UploadController', 'index']);
 $router->post('/subir', ['UploadController', 'procesar']);
+$router->get('/reintentar', ['UploadController', 'reintentar']); // NUEVO — reintentar operación fallida
 
 $router->get('/historial', ['HistorialController', 'index']);
+$router->get('/descargar', ['HistorialController', 'descargar']); // NUEVO — descarga real de archivos procesados
 
 $router->get('/estado', ['EstadoController', 'index']);
 $router->get('/estado/consultar', ['EstadoController', 'consultar']); // endpoint AJAX para refrescar progreso

@@ -80,14 +80,16 @@ $estadoInfo = [
           <div><?= htmlspecialchars($fechaTexto) ?></div>
           <div><?= htmlspecialchars($info['texto']) ?></div>
           <div class="pdflex-hist-action">
-            <?php if ($estado === 'completado'): ?>
-              <!-- TODO (Backend): enlazar a la ruta real de descarga del archivo procesado. -->
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12"></path><path d="M6 12l6 6 6-6"></path><path d="M5 20h14"></path></svg>
-              Descargar
+                        <?php if ($estado === 'completado'): ?>
+              <a href="<?= BASE_URL ?>/descargar?id=<?= (int) ($registro['id'] ?? 0) ?>" style="display:contents;color:inherit;text-decoration:none;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12"></path><path d="M6 12l6 6 6-6"></path><path d="M5 20h14"></path></svg>
+                Descargar
+              </a>
             <?php elseif ($estado === 'error'): ?>
-              <!-- TODO (Backend): enlazar al reintento real de la operación. -->
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"></path><path d="M21 4v5h-5"></path></svg>
-              Reintentar
+              <a href="<?= BASE_URL ?>/reintentar?id=<?= (int) ($registro['id'] ?? 0) ?>" style="display:contents;color:inherit;text-decoration:none;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"></path><path d="M21 4v5h-5"></path></svg>
+                Reintentar
+              </a>
             <?php else: ?>
               <span style="font-weight:400;">En proceso…</span>
             <?php endif; ?>
