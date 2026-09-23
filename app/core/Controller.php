@@ -15,9 +15,6 @@ class Controller
 
     protected function redirigir(string $ruta): void
     {
-        // BASE_URL es obligatorio aquí: la app vive en /PDFlex/public, no en la
-        // raíz del servidor. Un "Location: /login" a secas manda al navegador a
-        // http://localhost/login (404) en vez de http://localhost/PDFlex/public/login.
         header('Location: ' . BASE_URL . $ruta);
         exit;
     }
@@ -37,17 +34,32 @@ class Controller
     }
 
     /**
-     * Envía un archivo real como descarga (headers de attachment + el
-     * contenido del archivo). Compartido por cualquier controlador que
-     * necesite servir una descarga (hoy: HistorialController::descargar()).
+     * Envía un archivo real como descarga (headers de attachment).
      */
     protected function descargarArchivo(string $rutaCompleta, string $nombreDescarga): void
     {
+        $this->enviarArchivo($rutaCompleta, 'attachment', $nombreDescarga);
+    }
+
+    /**
+     * Envía un archivo para mostrarlo EMBEBIDO en el navegador (p. ej.
+     * dentro de un <iframe>, para "Vista previa"), en vez de descargarlo.
+     * Solo tiene sentido para tipos que el navegador puede mostrar solo
+     * (PDF, imágenes) — el controlador que lo llama es responsable de
+     * decidir si el tipo de archivo se puede previsualizar o no.
+     */
+    protected function mostrarArchivo(string $rutaCompleta): void
+    {
+        $this->enviarArchivo($rutaCompleta, 'inline');
+    }
+
+    private function enviarArchivo(string $rutaCompleta, string $disposicion, ?string $nombreDescarga = null): void
+    {
         $mime = mime_content_type($rutaCompleta) ?: 'application/octet-stream';
-        $nombreSeguro = str_replace(['"', '\\'], '', $nombreDescarga);
+        $nombre = $nombreDescarga !== null ? str_replace(['"', '\\'], '', $nombreDescarga) : basename($rutaCompleta);
 
         header('Content-Type: ' . $mime);
-        header('Content-Disposition: attachment; filename="' . $nombreSeguro . '"');
+        header('Content-Disposition: ' . $disposicion . '; filename="' . $nombre . '"');
         header('Content-Length: ' . filesize($rutaCompleta));
         header('Cache-Control: no-cache, must-revalidate');
 

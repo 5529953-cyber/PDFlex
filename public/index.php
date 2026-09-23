@@ -44,6 +44,7 @@ $router->get('/reintentar', ['UploadController', 'reintentar']); // NUEVO — re
 
 $router->get('/historial', ['HistorialController', 'index']);
 $router->get('/descargar', ['HistorialController', 'descargar']); // NUEVO — descarga real de archivos procesados
+$router->get('/previsualizar', ['HistorialController', 'previsualizar']); // NUEVO — vista previa embebida
 
 $router->get('/estado', ['EstadoController', 'index']);
 $router->get('/estado/consultar', ['EstadoController', 'consultar']); // endpoint AJAX para refrescar progreso

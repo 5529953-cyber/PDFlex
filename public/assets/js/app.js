@@ -518,9 +518,9 @@
 
 // PDFlex — modal de "Vista previa" en Estado (s4-f2). Una sola instancia
 // compartida por todas las tarjetas "Completado": cada botón [data-preview-abrir]
-// trae el nombre/operación de SU proceso en data-attributes, y este script
-// los coloca en el modal antes de mostrarlo. Todavía es una maqueta fija
-// (sin archivo real que mostrar) — mismo TODO de Backend que "Descargar".
+// trae el nombre/operación/URL de SU proceso en data-attributes, y este
+// script los coloca en el modal (incluida la URL del iframe) antes de
+// mostrarlo. La URL real la sirve el backend (HistorialController::previsualizar()).
 (function () {
   const overlay = document.getElementById('pdflexPreviewOverlay');
   if (!overlay) return; // pantalla sin modal de vista previa (no es Estado)
@@ -529,21 +529,24 @@
   const nombreEl = document.getElementById('pdflexPreviewNombre');
   const operacionEl = document.getElementById('pdflexPreviewOperacion');
   const botonCerrar = document.getElementById('pdflexPreviewCerrar');
+  const frameEl = document.getElementById('pdflexPreviewFrame');
 
-  function abrir(nombre, operacion) {
+  function abrir(nombre, operacion, src) {
     nombreEl.textContent = nombre;
     operacionEl.textContent = operacion;
+    if (frameEl && src) frameEl.src = src;
     overlay.hidden = false;
     botonCerrar.focus();
   }
 
   function cerrar() {
     overlay.hidden = true;
+    if (frameEl) frameEl.src = ''; // corta la carga del archivo al cerrar
   }
 
   document.querySelectorAll('[data-preview-abrir]').forEach((boton) => {
     boton.addEventListener('click', () => {
-      abrir(boton.dataset.previewNombre || '', boton.dataset.previewOperacion || '');
+      abrir(boton.dataset.previewNombre || '', boton.dataset.previewOperacion || '', boton.dataset.previewSrc || '');
     });
   });
 
