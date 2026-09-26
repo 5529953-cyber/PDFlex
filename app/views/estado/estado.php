@@ -84,9 +84,14 @@
   <?php endif; ?>
 </div>
 
-<!-- Modal de Vista previa (s4-f2). Estilos inline a propósito: así no
-     depende de ninguna clase CSS externa y funciona apenas se pega. -->
-<div id="pdflexPreviewOverlay" hidden style="position:fixed;inset:0;background:rgba(20,16,12,0.55);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px;">
+<!-- Modal de Vista previa (s4-f2). Estilos inline, salvo "display": un
+     style="display:flex" inline siempre gana sobre la regla del navegador
+     que oculta [hidden], así que el modal quedaba visible desde que
+     cargaba la página sin importar el atributo "hidden". El display se
+     controla aparte en style.css (#pdflexPreviewOverlay / [hidden]),
+     igual que ya se hizo antes para .pdflex-file-row y
+     .pdflex-compression-panel. Corregido 26 sep (Marvin). -->
+<div id="pdflexPreviewOverlay" hidden style="position:fixed;inset:0;background:rgba(20,16,12,0.55);align-items:center;justify-content:center;z-index:1000;padding:20px;">
   <div class="pdflex-preview-modal" style="background:#fff;border-radius:12px;max-width:760px;width:100%;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid #eee;">
       <div style="min-width:0;">

@@ -1257,6 +1257,18 @@ a:hover {
 .pdflex-preview-overlay[hidden] {
   display: none;
 }
+/* Modal de Vista previa real (conectado por Xavier, 23 sep): el div usa
+   id en vez de esta clase y trae sus estilos por style="" inline. Un
+   style="display:flex" inline gana siempre sobre [hidden] del navegador
+   (mismo bug de arriba, pero esta vez metido en el propio HTML, así que
+   una regla de clase no alcanza) — por eso el "display" se controla acá
+   por id en vez de en el style inline. Corregido 26 sep (Marvin). */
+#pdflexPreviewOverlay {
+  display: none;
+}
+#pdflexPreviewOverlay:not([hidden]) {
+  display: flex;
+}
 .pdflex-preview-modal {
   position: relative;
   background: #ffffff;
