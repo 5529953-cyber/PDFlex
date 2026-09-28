@@ -3,7 +3,17 @@
      (en curso / completado / error), con la acción correspondiente.
      $procesos llega del controlador (EstadoController::index).
      Incluye el modal de "Vista previa" (s4-f2), con estilos propios
-     (inline) para no depender de clases CSS externas. -->
+     (inline) para no depender de clases CSS externas.
+
+     Polling (pendiente de Frontend, conectado 28 sep — Marvin): esta vista
+     solo se renderiza UNA vez al cargar la página, así que una tarjeta
+     "en_curso" (con el ícono girando por CSS, ver #pdflex-estado-spin en
+     style.css) se quedaba girando para siempre aunque el proceso ya
+     hubiera terminado en el servidor — solo se corregía recargando a mano.
+     Las tarjetas "en_curso" llevan data-historial-id/data-consultar-url
+     para que app.js (sección "Polling de /estado") pueda preguntarle
+     periódicamente a EstadoController::consultar() y, cuando el estado ya
+     no sea "en_curso", reemplazar la tarjeta en el DOM sin recargar. -->
 <?php $procesos = $procesos ?? []; ?>
 
 <div class="pdflex-estado-title">Estado de tus procesos</div>
@@ -16,7 +26,7 @@
     <?php foreach ($procesos as $proceso):
         $estado = $proceso['estado'] ?? 'en_curso';
     ?>
-      <div class="pdflex-estado-card <?= htmlspecialchars($estado) ?>">
+      <div class="pdflex-estado-card <?= htmlspecialchars($estado) ?>"<?php if ($estado === 'en_curso'): ?> data-historial-id="<?= (int) ($proceso['id'] ?? 0) ?>" data-consultar-url="<?= BASE_URL ?>/estado/consultar?id=<?= (int) ($proceso['id'] ?? 0) ?>"<?php endif; ?>>
         <div class="pdflex-estado-row">
           <div class="pdflex-estado-info">
             <span class="pdflex-estado-icon">

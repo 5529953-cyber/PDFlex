@@ -170,3 +170,19 @@
   </div>
 
 </form>
+
+<!-- Overlay de "procesando" (28 sep, Marvin): app.js envía este formulario
+     con fetch() en vez de una petición normal para poder mostrar esto apenas
+     se hace clic en "Procesar archivo" — antes, como UploadController::procesar()
+     es síncrono, el navegador solo mostraba su propia pantalla en blanco de
+     "cargando" durante todo ese tiempo. Ver comentario junto a
+     .pdflex-submit-overlay en style.css. -->
+<div class="pdflex-submit-overlay" id="pdflexSubidaOverlay" hidden>
+  <div class="pdflex-submit-overlay-box">
+    <span class="pdflex-spin">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-9-9"></path></svg>
+    </span>
+    <div class="pdflex-submit-overlay-text">Subiendo y procesando tu archivo…</div>
+    <div class="pdflex-submit-overlay-hint">Puede tardar unos segundos, no cierres esta pestaña.</div>
+  </div>
+</div>

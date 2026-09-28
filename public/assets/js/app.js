@@ -21,6 +21,7 @@
   const compressionPanel = document.getElementById('compressionPanel');
   const nivelInput = document.getElementById('nivelInput');
   const btnProcesar = document.getElementById('btnProcesar');
+  const overlayEnvio = document.getElementById('pdflexSubidaOverlay');
 
   // s5-f1: selector visual de páginas (Unir / Dividir)
   const unionPanel = document.getElementById('unionPanel');
@@ -157,19 +158,60 @@
     nivelInput.value = boton.dataset.nivel;
   });
 
+  // 28 sep (Marvin): UploadController::procesar() es síncrono — la petición
+  // completa (subida + LibreOffice/Ghostscript/Tesseract) tarda del lado del
+  // servidor antes de responder. Con un <form> normal, el navegador se queda
+  // en su propia pantalla en blanco de "cargando" durante todo ese tiempo, y
+  // como Subir nunca llega a verse a sí mismo "en curso", parecía que la
+  // página no había hecho nada hasta que por fin volvía (ya en /estado).
+  // Por eso el envío ahora se hace con fetch(): la validación de abajo es
+  // exactamente la misma que antes, solo que en vez de dejar pasar la
+  // petición nativa cuando es válida, se llama a enviarConFetch() para poder
+  // mostrar el overlay de "procesando" (#pdflexSubidaOverlay) mientras dura.
   form.addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    let esValido;
     if (operacionSeleccionada === 'union') {
-      if (archivosUnion.length < 2) e.preventDefault();
-      return;
+      esValido = archivosUnion.length >= 2;
+    } else if (operacionSeleccionada === 'division') {
+      esValido = archivoValido && paginasSeleccionadas.size > 0;
+    } else {
+      esValido = archivoValido && !!operacionSeleccionada;
     }
-    if (operacionSeleccionada === 'division' && !(archivoValido && paginasSeleccionadas.size > 0)) {
-      e.preventDefault();
-      return;
-    }
-    if (!archivoValido || !operacionSeleccionada) {
-      e.preventDefault();
-    }
+
+    if (esValido) enviarConFetch();
   });
+
+  function enviarConFetch() {
+    if (overlayEnvio) overlayEnvio.hidden = false;
+    btnProcesar.disabled = true;
+
+    fetch(form.action, { method: 'POST', body: new FormData(form) })
+      .then((respuesta) => {
+        if (respuesta.redirected) {
+          // Salió bien: procesar() terminó y redirigió a /estado. Se navega
+          // de verdad (no solo se reemplaza el HTML) para que la barra de
+          // direcciones y el botón "Atrás" del navegador queden correctos.
+          window.location.href = respuesta.url;
+          return null;
+        }
+        // Sin redirect: procesar() volvió a mostrar este mismo formulario
+        // con un error de validación del servidor (archivo inválido, etc.).
+        return respuesta.text();
+      })
+      .then((html) => {
+        if (html === null) return; // ya se navegó arriba
+        document.open();
+        document.write(html);
+        document.close();
+      })
+      .catch(() => {
+        if (overlayEnvio) overlayEnvio.hidden = true;
+        btnProcesar.disabled = false;
+        mostrarError('No se pudo conectar con el servidor. Intentá de nuevo.');
+      });
+  }
 
   // ------------------------------------------------------------------
   // s5-f1a — "Unir": varios archivos, reordenables, con miniatura real
@@ -544,11 +586,18 @@
     if (frameEl) frameEl.src = ''; // corta la carga del archivo al cerrar
   }
 
-  document.querySelectorAll('[data-preview-abrir]').forEach((boton) => {
+  function inicializarBotonPreview(boton) {
     boton.addEventListener('click', () => {
       abrir(boton.dataset.previewNombre || '', boton.dataset.previewOperacion || '', boton.dataset.previewSrc || '');
     });
-  });
+  }
+
+  document.querySelectorAll('[data-preview-abrir]').forEach(inicializarBotonPreview);
+
+  // El polling de /estado (más abajo) puede insertar tarjetas nuevas con su
+  // propio botón "Vista previa" después de que esta IIFE ya corrió una vez;
+  // se expone el helper para que ese botón también quede conectado.
+  window.pdflexInicializarBotonPreview = inicializarBotonPreview;
 
   botonCerrar.addEventListener('click', cerrar);
 
@@ -561,5 +610,121 @@
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !overlay.hidden) cerrar();
+  });
+})();
+
+// PDFlex — Polling de /estado (pendiente de frontend, conectado 28 sep).
+// EstadoController::index() solo pinta la lista de procesos UNA vez, al
+// cargar la página; como no había nada que la volviera a consultar, una
+// tarjeta "en_curso" (con su ícono girando por CSS) se quedaba girando
+// para siempre aunque el proceso ya hubiera terminado en el servidor —
+// hacía falta recargar a mano para verlo actualizado. Esto pregunta cada
+// pocos segundos a EstadoController::consultar() (ya existía, sin usar) por
+// cada tarjeta "en_curso" y, en cuanto deja de estarlo, reconstruye esa
+// tarjeta en el DOM con el mismo HTML que ya arma estado.php en PHP.
+(function () {
+  const INTERVALO_MS = 4000;
+  const MAX_INTENTOS = 45; // ~3 minutos; evita seguir preguntando para siempre si algo queda atascado.
+
+  const tarjetas = document.querySelectorAll('.pdflex-estado-card.en_curso[data-consultar-url]');
+  if (!tarjetas.length) return; // pantalla sin procesos en curso (o no es Estado)
+
+  function escaparHtml(texto) {
+    const div = document.createElement('div');
+    div.textContent = texto == null ? '' : String(texto);
+    return div.innerHTML;
+  }
+
+  function iconoPara(estado) {
+    if (estado === 'completado') {
+      return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M8 12.5l2.5 2.5L16 9.5"></path></svg>';
+    }
+    return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>';
+  }
+
+  // Reconstruye el contenido de una tarjeta con el mismo markup que
+  // app/views/estado/estado.php arma en PHP para "completado"/"error" —
+  // si ese HTML cambia allá, hay que reflejarlo también acá.
+  function html(proceso, baseUrl) {
+    const archivo = escaparHtml(proceso.archivo);
+    const operacion = escaparHtml(proceso.operacion);
+    const etiqueta = proceso.estado === 'completado' ? 'Completado' : 'Error';
+
+    let subYAcciones;
+    if (proceso.estado === 'completado') {
+      subYAcciones =
+        '<div class="pdflex-estado-sub">Terminó ' + escaparHtml(proceso.terminado_hace || '') + '.</div>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+        '<a class="pdflex-estado-btn" href="' + baseUrl + '/descargar?id=' + proceso.id + '">' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12"></path><path d="M6 12l6 6 6-6"></path><path d="M5 20h14"></path></svg>' +
+        'Descargar</a>' +
+        '<button type="button" class="pdflex-estado-btn pdflex-estado-btn-outline" data-preview-abrir ' +
+        'data-preview-nombre="' + archivo + '" data-preview-operacion="' + operacion + '" ' +
+        'data-preview-src="' + baseUrl + '/previsualizar?id=' + proceso.id + '">' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>' +
+        'Vista previa</button>' +
+        '</div>';
+    } else {
+      subYAcciones =
+        '<div class="pdflex-estado-sub">' + escaparHtml(proceso.mensaje || 'Ocurrió un error al procesar el archivo.') + '</div>' +
+        '<a class="pdflex-estado-btn pdflex-estado-btn-outline" href="' + baseUrl + '/reintentar?id=' + proceso.id + '">' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"></path><path d="M21 4v5h-5"></path></svg>' +
+        'Reintentar</a>';
+    }
+
+    return (
+      '<div class="pdflex-estado-row">' +
+      '<div class="pdflex-estado-info">' +
+      '<span class="pdflex-estado-icon">' + iconoPara(proceso.estado) + '</span>' +
+      '<span class="pdflex-estado-nombre">' + archivo + '</span>' +
+      '<span class="pdflex-estado-separador">·</span>' +
+      '<span class="pdflex-estado-operacion">' + operacion + '</span>' +
+      '</div>' +
+      '<span class="pdflex-estado-label">' + etiqueta + '</span>' +
+      '</div>' +
+      subYAcciones
+    );
+  }
+
+  function actualizarTarjeta(tarjeta, proceso) {
+    const url = tarjeta.dataset.consultarUrl;
+    const baseUrl = url.replace(/\/estado\/consultar.*$/, '');
+
+    tarjeta.classList.remove('en_curso');
+    tarjeta.classList.add(proceso.estado);
+    tarjeta.removeAttribute('data-historial-id');
+    tarjeta.removeAttribute('data-consultar-url');
+    tarjeta.innerHTML = html(proceso, baseUrl);
+
+    const botonPreview = tarjeta.querySelector('[data-preview-abrir]');
+    if (botonPreview && window.pdflexInicializarBotonPreview) {
+      window.pdflexInicializarBotonPreview(botonPreview);
+    }
+  }
+
+  tarjetas.forEach((tarjeta) => {
+    const url = tarjeta.dataset.consultarUrl;
+    let intentos = 0;
+
+    const intervalo = setInterval(() => {
+      intentos++;
+      if (intentos > MAX_INTENTOS) {
+        clearInterval(intervalo);
+        return;
+      }
+
+      fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then((respuesta) => respuesta.json())
+        .then((proceso) => {
+          if (proceso && proceso.estado && proceso.estado !== 'en_curso') {
+            clearInterval(intervalo);
+            actualizarTarjeta(tarjeta, proceso);
+          }
+        })
+        .catch(() => {
+          // Si falla una consulta puntual (red, etc.) simplemente se reintenta
+          // en el próximo intervalo; no hace falta romper el polling por eso.
+        });
+    }, INTERVALO_MS);
   });
 })();
