@@ -162,24 +162,28 @@ class ProcesadorPDF
     }
 
     /**
-     * Aplica OCR a un PDF o a una imagen suelta (lo vuelve "buscable": el
-     * texto se puede seleccionar/copiar aunque el original sea una imagen
-     * escaneada o una foto), combinando Ghostscript + Tesseract:
+     * Aplica OCR a un PDF o a una imagen suelta: extrae el TEXTO real (no
+     * solo lo vuelve "seleccionable" sobre la imagen) y lo transcribe a un
+     * PDF nuevo, de texto plano — combinando Ghostscript + Tesseract +
+     * LibreOffice:
      *
      *   1. Si la entrada es un PDF, Ghostscript rasteriza cada página a una
      *      imagen PNG. Si la entrada YA es una imagen (JPG/PNG — 29 sep,
      *      Marvin: para que el usuario pueda subir la foto directamente sin
      *      tener que meterla antes en un PDF), se usa tal cual y este paso
      *      se salta.
-     *   2. Tesseract reconoce el texto de cada imagen y genera un PDF
-     *      de una sola página con una capa de texto invisible sobre
-     *      la imagen original.
-     *   3. Si hubo más de una página, se unen todos esos PDFs en uno
-     *      solo con unir().
+     *   2. Tesseract reconoce el texto de cada imagen (modo "txt": texto
+     *      plano, no el modo "pdf" que solo pega la imagen original con una
+     *      capa de texto invisible encima — eso no es lo que se pidió; acá
+     *      el resultado debe ser el texto de verdad, transcrito).
+     *   3. Todo el texto (una página tras otra, separadas con salto de
+     *      página) se junta en un único .txt y se convierte a PDF con
+     *      LibreOffice — ese PDF final tiene el texto como texto real,
+     *      no la foto/escaneo original de fondo.
      *
      * @param string $carpetaTemp Carpeta donde crear una subcarpeta de
-     *                            trabajo temporal (imágenes intermedias);
-     *                            se borra sola al terminar.
+     *                            trabajo temporal (imágenes y texto
+     *                            intermedios); se borra sola al terminar.
      * @param string $idioma      Código de idioma de Tesseract (ej. "spa", "eng", "spa+eng")
      */
     public static function ocr(string $rutaEntrada, string $carpetaTemp, string $rutaSalida, string $idioma = 'spa'): string
@@ -227,15 +231,16 @@ class ProcesadorPDF
                 }
             }
 
-            // 2. Tesseract sobre cada imagen, generando un PDF por página
-            $pdfsPorPagina = [];
+            // 2. Tesseract sobre cada imagen, en modo "txt": el texto plano
+            // reconocido de esa página, no un PDF con la imagen de fondo.
+            $textoPorPagina = [];
 
             foreach ($imagenes as $imagen) {
                 $nombreBase = pathinfo($imagen, PATHINFO_FILENAME);
                 $salidaBase = $carpetaTrabajo . DIRECTORY_SEPARATOR . $nombreBase;
 
                 $comandoTesseract = sprintf(
-                    '"%s" "%s" "%s" -l %s pdf',
+                    '"%s" "%s" "%s" -l %s txt',
                     RUTA_TESSERACT,
                     $imagen,
                     $salidaBase,
@@ -244,22 +249,38 @@ class ProcesadorPDF
 
                 self::ejecutar($comandoTesseract);
 
-                $rutaPdfPagina = $salidaBase . '.pdf';
+                $rutaTxtPagina = $salidaBase . '.txt';
 
-                if (!file_exists($rutaPdfPagina)) {
-                    throw new Exception('Tesseract no generó el PDF esperado para: ' . $imagen);
+                if (!file_exists($rutaTxtPagina)) {
+                    throw new Exception('Tesseract no generó el texto esperado para: ' . $imagen);
                 }
 
-                $pdfsPorPagina[] = $rutaPdfPagina;
+                $textoPorPagina[] = trim((string) file_get_contents($rutaTxtPagina));
             }
 
-            // 3. Un solo archivo: copiarlo. Varios: unirlos con unir().
-            if (count($pdfsPorPagina) === 1) {
-                if (!copy($pdfsPorPagina[0], $rutaSalida)) {
-                    throw new Exception('No se pudo generar el archivo final del OCR.');
-                }
-            } else {
-                self::unir($pdfsPorPagina, $rutaSalida);
+            // 3. Todas las páginas en un solo .txt (separadas con salto de
+            // página, \x0C — LibreOffice lo respeta como salto de página al
+            // convertir), y ese .txt se convierte a PDF con LibreOffice.
+            $rutaTxtFinal = $carpetaTrabajo . DIRECTORY_SEPARATOR . 'texto_extraido.txt';
+            file_put_contents($rutaTxtFinal, implode("\n\n\x0C\n\n", $textoPorPagina));
+
+            $comandoLibreOffice = sprintf(
+                '"%s" --headless --infilter="Text (encoded):UTF8" --convert-to pdf --outdir "%s" "%s"',
+                RUTA_LIBREOFFICE,
+                $carpetaTrabajo,
+                $rutaTxtFinal
+            );
+
+            self::ejecutar($comandoLibreOffice);
+
+            $rutaPdfGenerado = $carpetaTrabajo . DIRECTORY_SEPARATOR . 'texto_extraido.pdf';
+
+            if (!file_exists($rutaPdfGenerado)) {
+                throw new Exception('LibreOffice no generó el PDF de texto esperado.');
+            }
+
+            if (!copy($rutaPdfGenerado, $rutaSalida)) {
+                throw new Exception('No se pudo generar el archivo final del OCR.');
             }
 
             if (!file_exists($rutaSalida)) {
