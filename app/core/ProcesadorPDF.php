@@ -161,6 +161,13 @@ class ProcesadorPDF
         return $rutaSalida;
     }
 
+    // Umbral de confianza de Tesseract (0-100) para aceptar una palabra
+    // reconocida. Las palabras de 1-2 letras usan un umbral más exigente
+    // porque un logo o ícono en la imagen casi siempre se "lee" como una
+    // letra suelta con confianza baja-media (ver extraerTextoConfiable()).
+    private const OCR_CONFIANZA_MINIMA = 60;
+    private const OCR_CONFIANZA_MINIMA_PALABRA_CORTA = 85;
+
     /**
      * Aplica OCR a un PDF o a una imagen suelta: extrae el TEXTO real (no
      * solo lo vuelve "seleccionable" sobre la imagen) y lo transcribe a un
@@ -231,8 +238,13 @@ class ProcesadorPDF
                 }
             }
 
-            // 2. Tesseract sobre cada imagen, en modo "txt": el texto plano
-            // reconocido de esa página, no un PDF con la imagen de fondo.
+            // 2. Tesseract sobre cada imagen, en modo "tsv": igual que "txt"
+            // pero con la confianza (0-100) de cada palabra reconocida. Con
+            // fotos reales (un cartel, un logo, un ícono junto al texto),
+            // Tesseract intenta "leer" esos gráficos como si fueran letras
+            // sueltas — casi siempre con confianza muy baja. Filtrando esas
+            // palabras de baja confianza (extraerTextoConfiable) se limpia
+            // ese ruido de la transcripción final.
             $textoPorPagina = [];
 
             foreach ($imagenes as $imagen) {
@@ -240,7 +252,7 @@ class ProcesadorPDF
                 $salidaBase = $carpetaTrabajo . DIRECTORY_SEPARATOR . $nombreBase;
 
                 $comandoTesseract = sprintf(
-                    '"%s" "%s" "%s" -l %s txt',
+                    '"%s" "%s" "%s" -l %s tsv',
                     RUTA_TESSERACT,
                     $imagen,
                     $salidaBase,
@@ -249,13 +261,13 @@ class ProcesadorPDF
 
                 self::ejecutar($comandoTesseract);
 
-                $rutaTxtPagina = $salidaBase . '.txt';
+                $rutaTsvPagina = $salidaBase . '.tsv';
 
-                if (!file_exists($rutaTxtPagina)) {
+                if (!file_exists($rutaTsvPagina)) {
                     throw new Exception('Tesseract no generó el texto esperado para: ' . $imagen);
                 }
 
-                $textoPorPagina[] = trim((string) file_get_contents($rutaTxtPagina));
+                $textoPorPagina[] = self::extraerTextoConfiable($rutaTsvPagina);
             }
 
             // 3. Todas las páginas en un solo .txt (separadas con salto de
@@ -292,6 +304,68 @@ class ProcesadorPDF
             // Limpieza de imágenes y PDFs intermedios, pase lo que pase.
             self::limpiarCarpeta($carpetaTrabajo);
         }
+    }
+
+    /**
+     * Reconstruye el texto de una página a partir del .tsv de Tesseract
+     * (una fila por palabra reconocida, con su nivel de confianza 0-100),
+     * descartando las palabras de baja confianza — típicamente restos de
+     * un logo, ícono o mancha en la imagen que Tesseract intentó "leer"
+     * como si fueran letras — y respetando los saltos de línea originales
+     * (agrupando por bloque/párrafo/línea, columnas 3, 4 y 5 del .tsv).
+     */
+    private static function extraerTextoConfiable(string $rutaTsv): string
+    {
+        $filas = file($rutaTsv, FILE_IGNORE_NEW_LINES);
+
+        if ($filas === false || count($filas) < 2) {
+            return '';
+        }
+
+        array_shift($filas); // encabezado (level, page_num, block_num, ...)
+
+        $claveLineaActual = null;
+        $palabrasLinea = [];
+        $lineasTexto = [];
+
+        foreach ($filas as $fila) {
+            $columnas = explode("\t", $fila);
+
+            // nivel 5 = palabra (1=página, 2=bloque, 3=párrafo, 4=línea)
+            if (count($columnas) < 12 || $columnas[0] !== '5') {
+                continue;
+            }
+
+            $claveLinea = $columnas[2] . '.' . $columnas[3] . '.' . $columnas[4]; // bloque.párrafo.línea
+            $confianza = (float) $columnas[10];
+            $texto = trim($columnas[11]);
+
+            if ($texto === '') {
+                continue;
+            }
+
+            if ($claveLinea !== $claveLineaActual) {
+                if (!empty($palabrasLinea)) {
+                    $lineasTexto[] = implode(' ', $palabrasLinea);
+                }
+                $palabrasLinea = [];
+                $claveLineaActual = $claveLinea;
+            }
+
+            $umbral = mb_strlen($texto) <= 2
+                ? self::OCR_CONFIANZA_MINIMA_PALABRA_CORTA
+                : self::OCR_CONFIANZA_MINIMA;
+
+            if ($confianza >= $umbral) {
+                $palabrasLinea[] = $texto;
+            }
+        }
+
+        if (!empty($palabrasLinea)) {
+            $lineasTexto[] = implode(' ', $palabrasLinea);
+        }
+
+        return implode("\n", array_filter($lineasTexto, fn($linea) => $linea !== ''));
     }
 
     private static function ejecutar(string $comando): void
