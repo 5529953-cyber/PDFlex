@@ -8,6 +8,15 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Zona horaria (29 sep, Marvin): sin esto PHP usa UTC por defecto, mientras
+// que MySQL (NOW(), usado por Historial::actualizarEstado() para poner
+// fecha_fin) devuelve la hora local del servidor — Honduras, UTC-6. Ese
+// desfase de 6 horas era la causa de que "Terminó hace X" mostrara
+// "hace 6 horas" en un proceso recién completado (EstadoController::tiempoRelativo()
+// hace time() - strtotime(fecha_fin), y sin esta línea time() venía adelantado
+// 6 horas respecto a fecha_fin).
+date_default_timezone_set('America/Tegucigalpa');
+
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../app/core/Database.php';
 require_once __DIR__ . '/../app/core/Controller.php';
