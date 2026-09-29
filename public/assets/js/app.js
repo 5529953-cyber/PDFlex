@@ -6,10 +6,21 @@
 (function () {
   const MAX_BYTES = 20 * 1024 * 1024; // 20 MB, igual que el wireframe
 
+  // OCR (29 sep, Marvin): Tesseract lee una imagen directo, así que para esa
+  // operación también se acepta una foto/imagen suelta, sin meterla antes en
+  // un PDF. Debe coincidir con UploadController::MIME_IMAGEN_PERMITIDOS /
+  // EXTENSIONES_IMAGEN_PERMITIDAS — esto es solo una validación visual, la
+  // validación real (la que importa) es la del servidor.
+  const ACCEPT_PDF = 'application/pdf,.pdf';
+  const ACCEPT_PDF_O_IMAGEN = 'application/pdf,.pdf,image/jpeg,image/png,.jpg,.jpeg,.png';
+  const EXTENSIONES_IMAGEN_OCR = ['jpg', 'jpeg', 'png'];
+
   const form = document.getElementById('formSubida');
   if (!form) return; // esta página no es "Subir archivo"
 
   const dropzone = document.getElementById('dropzone');
+  const dropzoneText = document.getElementById('dropzoneText');
+  const dropzoneHint = document.getElementById('dropzoneHint');
   const input = document.getElementById('archivo');
   const fileRow = document.getElementById('fileRow');
   const fileNameEl = document.getElementById('fileName');
@@ -68,7 +79,15 @@
   function validarArchivo(archivo) {
     if (!archivo) return false;
     const esPdf = archivo.type === 'application/pdf' || /\.pdf$/i.test(archivo.name);
-    if (!esPdf) {
+
+    if (operacionSeleccionada === 'ocr') {
+      const extension = (archivo.name.split('.').pop() || '').toLowerCase();
+      const esImagen = archivo.type.startsWith('image/') || EXTENSIONES_IMAGEN_OCR.includes(extension);
+      if (!esPdf && !esImagen) {
+        mostrarError('Para OCR se acepta un PDF o una imagen (JPG o PNG).');
+        return false;
+      }
+    } else if (!esPdf) {
       mostrarError('Solo se aceptan archivos PDF.');
       return false;
     }
@@ -224,18 +243,37 @@
   }
 
   function alCambiarOperacion(anterior, actual) {
+    // OCR (29 sep, Marvin): amplía qué acepta el input de archivo (y el
+    // texto del dropzone) para que también se pueda subir una imagen
+    // directamente; el resto de operaciones siguen siendo solo PDF.
+    if (actual === 'ocr') {
+      input.accept = ACCEPT_PDF_O_IMAGEN;
+      if (dropzoneText) dropzoneText.textContent = 'Arrastra tu PDF o imagen aquí';
+      if (dropzoneHint) dropzoneHint.textContent = 'o haz clic para seleccionar · JPG, PNG o PDF · máximo 20 MB';
+    } else {
+      input.accept = ACCEPT_PDF;
+      if (dropzoneText) dropzoneText.textContent = 'Arrastra tu PDF aquí';
+      if (dropzoneHint) dropzoneHint.textContent = 'o haz clic para seleccionar · máximo 20 MB';
+    }
+
     // El archivo "principal" que ya estaba cargado (en modo de un solo
     // archivo, o el primero de la lista de Unir) se conserva al cambiar de
     // operación, para no obligar a resubir por elegir mal la primera vez.
+    // Unir/Dividir siempre necesitan un PDF real (miniaturas con pdf.js), así
+    // que si venía de OCR con una imagen cargada, no se arrastra: es más
+    // seguro pedir que se vuelva a elegir el archivo.
     const archivoPrincipal = archivosUnion[0] || (archivoValido ? input.files[0] : null);
+    const esPdfReal = archivoPrincipal
+      && (archivoPrincipal.type === 'application/pdf' || /\.pdf$/i.test(archivoPrincipal.name));
 
     if (actual === 'union') {
+      const archivoParaUnion = esPdfReal ? archivoPrincipal : null;
       input.multiple = true;
       input.name = 'archivos[]';
       fileRow.hidden = true;
       divisionPanel.hidden = true;
       unionPanel.hidden = false;
-      archivosUnion = archivoPrincipal ? [archivoPrincipal] : [];
+      archivosUnion = archivoParaUnion ? [archivoParaUnion] : [];
       sincronizarInputUnion();
       renderizarUnion();
     } else {

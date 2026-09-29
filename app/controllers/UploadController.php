@@ -11,6 +11,12 @@ class UploadController extends Controller
     private const EXTENSION_PERMITIDA = 'pdf';
     private const TAMANO_MAXIMO_BYTES = 20 * 1024 * 1024; // 20 MB por archivo
 
+    // OCR (29 sep, Marvin): Tesseract puede leer una imagen directamente, sin
+    // pasar por un PDF primero (ver ProcesadorPDF::ocr()), así que solo para
+    // la operación "ocr" también se aceptan estos formatos de imagen.
+    private const MIME_IMAGEN_PERMITIDOS = ['image/jpeg', 'image/png'];
+    private const EXTENSIONES_IMAGEN_PERMITIDAS = ['jpg', 'jpeg', 'png'];
+
     private const OPERACIONES_VALIDAS = [
         'conversion_pdf_word',
         'conversion_pdf_imagen',
@@ -74,8 +80,16 @@ class UploadController extends Controller
             $tipoMime = mime_content_type($archivo['tmp_name']);
             $extension = strtolower(pathinfo($archivo['name'], PATHINFO_EXTENSION));
 
-            if ($tipoMime !== self::TIPO_MIME_PERMITIDO || $extension !== self::EXTENSION_PERMITIDA) {
-                $this->vista('upload/subida', ['error' => 'Solo se permiten archivos PDF.']);
+            $esPdfValido = $tipoMime === self::TIPO_MIME_PERMITIDO && $extension === self::EXTENSION_PERMITIDA;
+            $esImagenValidaParaOcr = $tipoOperacion === 'ocr'
+                && in_array($tipoMime, self::MIME_IMAGEN_PERMITIDOS, true)
+                && in_array($extension, self::EXTENSIONES_IMAGEN_PERMITIDAS, true);
+
+            if (!$esPdfValido && !$esImagenValidaParaOcr) {
+                $mensaje = $tipoOperacion === 'ocr'
+                    ? 'Para OCR se permite un PDF o una imagen (JPG o PNG).'
+                    : 'Solo se permiten archivos PDF.';
+                $this->vista('upload/subida', ['error' => $mensaje]);
                 return;
             }
         }

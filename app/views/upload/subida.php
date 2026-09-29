@@ -55,9 +55,13 @@
           <path d="M12 12v7"></path>
           <path d="M9.5 15.5L12 13l2.5 2.5"></path>
         </svg>
-        <div class="pdflex-dropzone-text">Arrastra tu PDF aquí</div>
-        <div class="pdflex-dropzone-hint">o haz clic para seleccionar · máximo 20 MB</div>
+        <div class="pdflex-dropzone-text" id="dropzoneText">Arrastra tu PDF aquí</div>
+        <div class="pdflex-dropzone-hint" id="dropzoneHint">o haz clic para seleccionar · máximo 20 MB</div>
       </label>
+      <!-- accept se amplía por JS a también imágenes (JPG/PNG) cuando la
+           operación elegida es OCR (29 sep, Marvin) — ver alCambiarOperacion()
+           en app.js. Tesseract puede leer una foto directo, sin pasar por
+           un PDF primero. -->
       <input type="file" name="archivo" id="archivo" accept="application/pdf,.pdf" class="visually-hidden" required>
 
       <div class="pdflex-file-row" id="fileRow" hidden>

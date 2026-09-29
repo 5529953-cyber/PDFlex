@@ -162,11 +162,15 @@ class ProcesadorPDF
     }
 
     /**
-     * Aplica OCR a un PDF (lo vuelve "buscable": el texto se puede
-     * seleccionar/copiar aunque el PDF sea originalmente una imagen
-     * escaneada), combinando Ghostscript + Tesseract:
+     * Aplica OCR a un PDF o a una imagen suelta (lo vuelve "buscable": el
+     * texto se puede seleccionar/copiar aunque el original sea una imagen
+     * escaneada o una foto), combinando Ghostscript + Tesseract:
      *
-     *   1. Ghostscript rasteriza cada página del PDF a una imagen PNG.
+     *   1. Si la entrada es un PDF, Ghostscript rasteriza cada página a una
+     *      imagen PNG. Si la entrada YA es una imagen (JPG/PNG — 29 sep,
+     *      Marvin: para que el usuario pueda subir la foto directamente sin
+     *      tener que meterla antes en un PDF), se usa tal cual y este paso
+     *      se salta.
      *   2. Tesseract reconoce el texto de cada imagen y genera un PDF
      *      de una sola página con una capa de texto invisible sobre
      *      la imagen original.
@@ -194,24 +198,33 @@ class ProcesadorPDF
         }
 
         try {
-            // 1. Rasterizar cada página del PDF a PNG (300 dpi: buen
-            // equilibrio entre calidad de reconocimiento y tiempo/peso)
-            $patronImagenes = $carpetaTrabajo . DIRECTORY_SEPARATOR . 'pagina_%03d.png';
+            $extensionEntrada = strtolower(pathinfo($rutaEntrada, PATHINFO_EXTENSION));
+            $esImagen = in_array($extensionEntrada, ['jpg', 'jpeg', 'png'], true);
 
-            $comandoGs = sprintf(
-                '"%s" -sDEVICE=png16m -r300 -dNOPAUSE -dQUIET -dBATCH -o "%s" "%s"',
-                RUTA_GHOSTSCRIPT,
-                $patronImagenes,
-                $rutaEntrada
-            );
+            if ($esImagen) {
+                // La entrada ya es una imagen: Tesseract la lee directo, sin
+                // pasar por Ghostscript (eso solo rasteriza PDFs).
+                $imagenes = [$rutaEntrada];
+            } else {
+                // 1. Rasterizar cada página del PDF a PNG (300 dpi: buen
+                // equilibrio entre calidad de reconocimiento y tiempo/peso)
+                $patronImagenes = $carpetaTrabajo . DIRECTORY_SEPARATOR . 'pagina_%03d.png';
 
-            self::ejecutar($comandoGs);
+                $comandoGs = sprintf(
+                    '"%s" -sDEVICE=png16m -r300 -dNOPAUSE -dQUIET -dBATCH -o "%s" "%s"',
+                    RUTA_GHOSTSCRIPT,
+                    $patronImagenes,
+                    $rutaEntrada
+                );
 
-            $imagenes = glob($carpetaTrabajo . DIRECTORY_SEPARATOR . 'pagina_*.png');
-            sort($imagenes);
+                self::ejecutar($comandoGs);
 
-            if (empty($imagenes)) {
-                throw new Exception('Ghostscript no generó imágenes para el OCR.');
+                $imagenes = glob($carpetaTrabajo . DIRECTORY_SEPARATOR . 'pagina_*.png');
+                sort($imagenes);
+
+                if (empty($imagenes)) {
+                    throw new Exception('Ghostscript no generó imágenes para el OCR.');
+                }
             }
 
             // 2. Tesseract sobre cada imagen, generando un PDF por página
