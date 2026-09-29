@@ -80,6 +80,12 @@
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
               Vista previa
             </button>
+            <?php if (($proceso['tipo'] ?? '') === 'ocr'): ?>
+              <a class="pdflex-estado-btn pdflex-estado-btn-outline" href="<?= BASE_URL ?>/estado/editar-ocr?id=<?= (int) ($proceso['id'] ?? 0) ?>">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                Editar texto
+              </a>
+            <?php endif; ?>
           </div>
 
         <?php else: ?>

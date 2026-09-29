@@ -152,6 +152,18 @@ class UploadController extends Controller
 
             // 10. Rastrear también el archivo generado
             ArchivoTemporal::registrar($historialId, $rutaResultado, $fechaExpiracion);
+
+            // OCR (30 sep, Marvin): ProcesadorPDF::ocr() deja, junto al PDF,
+            // un .txt "hermano" con el texto reconocido (para "Editar texto"
+            // en /estado — ver EstadoController::editarOcr()). Se rastrea
+            // igual que el PDF para que el borrado automático lo limpie con
+            // el mismo vencimiento.
+            if ($tipoOperacion === 'ocr') {
+                $rutaTxtSidecar = ProcesadorPDF::rutaSidecarTexto($rutaResultado);
+                if (file_exists($rutaTxtSidecar)) {
+                    ArchivoTemporal::registrar($historialId, $rutaTxtSidecar, $fechaExpiracion);
+                }
+            }
         } catch (Exception $e) {
             Historial::actualizarEstado($historialId, 'error', $e->getMessage());
         }
@@ -212,6 +224,15 @@ class UploadController extends Controller
 
             $fechaExpiracion = date('Y-m-d H:i:s', strtotime('+24 hours'));
             ArchivoTemporal::registrar($id, $rutaResultado, $fechaExpiracion);
+
+            // OCR: ver el mismo comentario en procesar() — rastrea el .txt
+            // "hermano" del PDF para "Editar texto" en /estado.
+            if ($tipoOperacion === 'ocr') {
+                $rutaTxtSidecar = ProcesadorPDF::rutaSidecarTexto($rutaResultado);
+                if (file_exists($rutaTxtSidecar)) {
+                    ArchivoTemporal::registrar($id, $rutaTxtSidecar, $fechaExpiracion);
+                }
+            }
         } catch (Exception $e) {
             Historial::actualizarEstado($id, 'error', $e->getMessage());
         }

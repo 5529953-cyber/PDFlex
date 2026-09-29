@@ -57,5 +57,7 @@ $router->get('/previsualizar', ['HistorialController', 'previsualizar']); // NUE
 
 $router->get('/estado', ['EstadoController', 'index']);
 $router->get('/estado/consultar', ['EstadoController', 'consultar']); // endpoint AJAX para refrescar progreso
+$router->get('/estado/editar-ocr', ['EstadoController', 'editarOcr']); // NUEVO — corregir texto de un OCR completado
+$router->post('/estado/editar-ocr', ['EstadoController', 'guardarOcr']);
 
 $router->resolver();

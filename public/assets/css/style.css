@@ -1294,6 +1294,39 @@ a:hover {
 }
 
 /* ============================================================
+   Pantalla "Editar texto" de un OCR completado (30 sep, Marvin) —
+   ver app/views/estado/editar_ocr.php y EstadoController::editarOcr().
+   ============================================================ */
+.pdflex-ocr-textarea {
+  width: 100%;
+  min-height: 360px;
+  padding: 14px 16px;
+  border: 1.4px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Work Sans', sans-serif;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+.pdflex-ocr-textarea:focus {
+  outline: none;
+  border-color: var(--acento);
+}
+.pdflex-ocr-acciones {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+.pdflex-ocr-guardar {
+  width: auto;
+  padding: 12px 28px;
+  margin-top: 0;
+}
+
+/* ============================================================
    Modal de vista previa (s4-f2) — una sola instancia compartida
    por todas las tarjetas de Estado; app.js llena nombre/operación
    y la muestra al hacer clic en "Vista previa". Maqueta fija por

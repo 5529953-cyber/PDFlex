@@ -270,11 +270,44 @@ class ProcesadorPDF
                 $textoPorPagina[] = self::extraerTextoConfiable($rutaTsvPagina);
             }
 
-            // 3. Todas las páginas en un solo .txt (separadas con salto de
-            // página, \x0C — LibreOffice lo respeta como salto de página al
-            // convertir), y ese .txt se convierte a PDF con LibreOffice.
-            $rutaTxtFinal = $carpetaTrabajo . DIRECTORY_SEPARATOR . 'texto_extraido.txt';
-            file_put_contents($rutaTxtFinal, implode("\n\n\x0C\n\n", $textoPorPagina));
+            // 3. Todas las páginas en un solo texto (separadas con salto de
+            // página, \x0C) y ese texto se convierte a PDF con LibreOffice
+            // (generarPdfDesdeTexto(), reutilizado también al editar el
+            // texto reconocido después — ver EstadoController::guardarOcr()).
+            $textoCompleto = implode("\n\n\x0C\n\n", $textoPorPagina);
+
+            self::generarPdfDesdeTexto($textoCompleto, $carpetaTemp, $rutaSalida);
+
+            // 4. Guarda el texto reconocido en un .txt "hermano" del PDF (30
+            // sep, Marvin: para poder reabrirlo y corregirlo después, desde
+            // "Editar texto" en /estado, sin tener que volver a correr todo
+            // el OCR sobre la imagen/PDF original).
+            file_put_contents(self::rutaSidecarTexto($rutaSalida), $textoCompleto);
+
+            return $rutaSalida;
+        } finally {
+            // Limpieza de imágenes y PDFs intermedios, pase lo que pase.
+            self::limpiarCarpeta($carpetaTrabajo);
+        }
+    }
+
+    /**
+     * Convierte texto plano en un PDF nuevo, vía LibreOffice — el mismo
+     * paso final que usa ocr(), reutilizado también cuando se edita a mano
+     * el texto ya reconocido (EstadoController::guardarOcr()), sin tener
+     * que volver a correr Ghostscript/Tesseract.
+     */
+    public static function generarPdfDesdeTexto(string $texto, string $carpetaTemp, string $rutaSalida): string
+    {
+        $carpetaTrabajo = rtrim($carpetaTemp, '/\\') . DIRECTORY_SEPARATOR . uniqid('txt2pdf_', true);
+
+        if (!mkdir($carpetaTrabajo, 0777, true) && !is_dir($carpetaTrabajo)) {
+            throw new Exception('No se pudo crear la carpeta temporal para generar el PDF.');
+        }
+
+        try {
+            $rutaTxtFinal = $carpetaTrabajo . DIRECTORY_SEPARATOR . 'texto.txt';
+            file_put_contents($rutaTxtFinal, $texto);
 
             $comandoLibreOffice = sprintf(
                 '"%s" --headless --infilter="Text (encoded):UTF8" --convert-to pdf --outdir "%s" "%s"',
@@ -285,25 +318,37 @@ class ProcesadorPDF
 
             self::ejecutar($comandoLibreOffice);
 
-            $rutaPdfGenerado = $carpetaTrabajo . DIRECTORY_SEPARATOR . 'texto_extraido.pdf';
+            $rutaPdfGenerado = $carpetaTrabajo . DIRECTORY_SEPARATOR . 'texto.pdf';
 
             if (!file_exists($rutaPdfGenerado)) {
                 throw new Exception('LibreOffice no generó el PDF de texto esperado.');
             }
 
             if (!copy($rutaPdfGenerado, $rutaSalida)) {
-                throw new Exception('No se pudo generar el archivo final del OCR.');
+                throw new Exception('No se pudo generar el archivo final.');
             }
 
             if (!file_exists($rutaSalida)) {
-                throw new Exception('El OCR no generó el archivo esperado: ' . $rutaSalida);
+                throw new Exception('No se generó el archivo esperado: ' . $rutaSalida);
             }
 
             return $rutaSalida;
         } finally {
-            // Limpieza de imágenes y PDFs intermedios, pase lo que pase.
             self::limpiarCarpeta($carpetaTrabajo);
         }
+    }
+
+    /**
+     * Ruta del .txt "hermano" de un PDF de resultado de OCR: mismo nombre,
+     * misma carpeta, extensión .txt. Ahí vive el texto reconocido, para
+     * poder reabrirlo y corregirlo después sin volver a correr el OCR.
+     */
+    public static function rutaSidecarTexto(string $rutaPdf): string
+    {
+        $directorio = pathinfo($rutaPdf, PATHINFO_DIRNAME);
+        $nombreBase = pathinfo($rutaPdf, PATHINFO_FILENAME);
+
+        return $directorio . DIRECTORY_SEPARATOR . $nombreBase . '.txt';
     }
 
     /**

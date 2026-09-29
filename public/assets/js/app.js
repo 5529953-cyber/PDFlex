@@ -690,6 +690,13 @@
 
     let subYAcciones;
     if (proceso.estado === 'completado') {
+      // "Editar texto" (30 sep, Marvin): solo para OCR — ver el mismo botón
+      // en app/views/estado/estado.php y EstadoController::editarOcr().
+      const botonEditarOcr = proceso.tipo === 'ocr'
+        ? '<a class="pdflex-estado-btn pdflex-estado-btn-outline" href="' + baseUrl + '/estado/editar-ocr?id=' + proceso.id + '">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>' +
+          'Editar texto</a>'
+        : '';
       subYAcciones =
         '<div class="pdflex-estado-sub">Terminó ' + escaparHtml(proceso.terminado_hace || '') + '.</div>' +
         '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
@@ -701,6 +708,7 @@
         'data-preview-src="' + baseUrl + '/previsualizar?id=' + proceso.id + '">' +
         '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>' +
         'Vista previa</button>' +
+        botonEditarOcr +
         '</div>';
     } else {
       subYAcciones =
