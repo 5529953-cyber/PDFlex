@@ -5,6 +5,8 @@
  *
  * Semana 6 (s6-f1 / s6-b1) — completo. Descarga, reintento y vista previa
  * agregados después (sin semana asignada en el cronograma original).
+ * El reintento real vive en UploadController::reintentar() (la ruta
+ * /reintentar apunta ahí, no acá).
  */
 class HistorialController extends Controller
 {
@@ -57,11 +59,10 @@ class HistorialController extends Controller
 
     /**
      * GET /previsualizar?id=<historial_id> — pensada para cargarse dentro
-     * de un <iframe> en el modal de "Vista previa" (s4-f2, todavía sin
-     * armar del lado de Marvin). Para PDF/imagen muestra el archivo
-     * directo; para lo demás (p. ej. .docx, que el navegador no puede
-     * mostrar solo) devuelve una página mínima con un enlace de descarga,
-     * para que el iframe siga mostrando algo sensato.
+     * de un <iframe> en el modal de "Vista previa" (s4-f2). Para PDF/imagen
+     * muestra el archivo directo; para lo demás (p. ej. .docx, que el
+     * navegador no puede mostrar solo) devuelve una página mínima con un
+     * enlace de descarga, para que el iframe siga mostrando algo sensato.
      */
     public function previsualizar(): void
     {
@@ -99,14 +100,5 @@ class HistorialController extends Controller
         }
 
         $this->mostrarArchivo($rutaArchivo);
-    }
-
-    /**
-     * GET /reintentar?id=<historial_id>
-     */
-    public function reintentar(): void
-    {
-        // (sin cambios respecto a la versión anterior — la dejo afuera de
-        // este bloque para no repetirla; seguí usando la que ya tenés)
     }
 }
