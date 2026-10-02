@@ -238,36 +238,38 @@ class ProcesadorPDF
                 }
             }
 
-            // 2. Tesseract sobre cada imagen, en modo "tsv": igual que "txt"
-            // pero con la confianza (0-100) de cada palabra reconocida. Con
-            // fotos reales (un cartel, un logo, un ícono junto al texto),
-            // Tesseract intenta "leer" esos gráficos como si fueran letras
-            // sueltas — casi siempre con confianza muy baja. Filtrando esas
-            // palabras de baja confianza (extraerTextoConfiable) se limpia
-            // ese ruido de la transcripción final.
+            // 2. Tesseract sobre cada imagen — y, si ImageMagick está
+            // disponible, TAMBIÉN sobre una versión preprocesada de esa
+            // misma imagen (ver preprocesarImagenParaOcr más abajo) — y nos
+            // quedamos con la que reconozca MÁS texto con confianza
+            // (comparando la longitud del texto ya filtrado por
+            // extraerTextoConfiable). Esto es así, y no "siempre usar la
+            // preprocesada", porque el preprocesamiento (sobre todo el
+            // umbral adaptativo que ayuda con fotos oscuras) puede meterle
+            // ruido a una imagen que ya era nítida y empeorarla — probado
+            // 2 oct, Marvin: un recorte de diario ya limpio se leía casi
+            // perfecto sin preprocesar, y preprocesado salía hecho pedazos.
+            // Comparando los dos resultados y quedándonos con el mejor, una
+            // foto con mala luz se beneficia del preprocesamiento sin
+            // arriesgar que un documento que ya andaba bien empeore. Si
+            // RUTA_IMAGEMAGICK no está configurado en esta máquina (p. ej.
+            // la de un compañero que todavía no lo instaló), simplemente no
+            // se prueba la versión preprocesada y el OCR tarda la mitad.
             $textoPorPagina = [];
 
             foreach ($imagenes as $imagen) {
-                $nombreBase = pathinfo($imagen, PATHINFO_FILENAME);
-                $salidaBase = $carpetaTrabajo . DIRECTORY_SEPARATOR . $nombreBase;
+                $textoOriginal = self::reconocerTextoDeImagen($imagen, $carpetaTrabajo, $idioma);
 
-                $comandoTesseract = sprintf(
-                    '"%s" "%s" "%s" -l %s tsv',
-                    RUTA_TESSERACT,
-                    $imagen,
-                    $salidaBase,
-                    $idioma
-                );
+                if (defined('RUTA_IMAGEMAGICK')) {
+                    $imagenPreprocesada = self::preprocesarImagenParaOcr($imagen, $carpetaTrabajo);
+                    $textoPreprocesado = self::reconocerTextoDeImagen($imagenPreprocesada, $carpetaTrabajo, $idioma);
 
-                self::ejecutar($comandoTesseract);
-
-                $rutaTsvPagina = $salidaBase . '.tsv';
-
-                if (!file_exists($rutaTsvPagina)) {
-                    throw new Exception('Tesseract no generó el texto esperado para: ' . $imagen);
+                    $textoPorPagina[] = mb_strlen($textoPreprocesado) > mb_strlen($textoOriginal)
+                        ? $textoPreprocesado
+                        : $textoOriginal;
+                } else {
+                    $textoPorPagina[] = $textoOriginal;
                 }
-
-                $textoPorPagina[] = self::extraerTextoConfiable($rutaTsvPagina);
             }
 
             // 3. Todas las páginas en un solo texto (separadas con salto de
@@ -289,6 +291,95 @@ class ProcesadorPDF
             // Limpieza de imágenes y PDFs intermedios, pase lo que pase.
             self::limpiarCarpeta($carpetaTrabajo);
         }
+    }
+
+    /**
+     * Corre Tesseract sobre una imagen (modo "tsv": texto + confianza 0-100
+     * por palabra) y devuelve ya el texto filtrado por confianza
+     * (extraerTextoConfiable) — reutilizado por ocr() tanto para la imagen
+     * original como, si corresponde, para su versión preprocesada.
+     */
+    private static function reconocerTextoDeImagen(string $rutaImagen, string $carpetaTrabajo, string $idioma): string
+    {
+        $nombreBase = pathinfo($rutaImagen, PATHINFO_FILENAME);
+        $salidaBase = $carpetaTrabajo . DIRECTORY_SEPARATOR . $nombreBase;
+
+        $comandoTesseract = sprintf(
+            '"%s" "%s" "%s" -l %s tsv',
+            RUTA_TESSERACT,
+            $rutaImagen,
+            $salidaBase,
+            $idioma
+        );
+
+        self::ejecutar($comandoTesseract);
+
+        $rutaTsv = $salidaBase . '.tsv';
+
+        if (!file_exists($rutaTsv)) {
+            throw new Exception('Tesseract no generó el texto esperado para: ' . $rutaImagen);
+        }
+
+        return self::extraerTextoConfiable($rutaTsv);
+    }
+
+    /**
+     * Preprocesa una imagen con ImageMagick antes de mandarla a Tesseract,
+     * para mejorar el reconocimiento en fotos de mala calidad: endereza una
+     * inclinación leve (-deskew), pasa a escala de grises y estira el
+     * contraste al rango completo (-auto-level + -gamma, aclara sombras y
+     * zonas con poca luz), separa el texto del fondo con un umbral
+     * adaptativo LOCAL (-lat — a diferencia de un umbral fijo, funciona
+     * aunque la iluminación no sea pareja en toda la foto) y agranda la
+     * imagen al doble (-resize, ayuda con fotos de baja resolución).
+     *
+     * Probado empíricamente (1 oct, Marvin) contra una foto real: subió la
+     * confianza de Tesseract en la palabra "WAITING?" de 54% a 96%, y el
+     * resto de palabras reales por encima de 89% (antes algunas quedaban
+     * por debajo del umbral de extraerTextoConfiable() y se perdían). En
+     * una foto muy oscura/con ruido pasó de no reconocer NADA a transcribir
+     * una parte del texto de forma confiable.
+     *
+     * OJO — esto puede EMPEORAR una imagen que ya era nítida (el umbral
+     * adaptativo le mete ruido a un escaneo limpio; probado 2 oct, Marvin,
+     * con un recorte de diario). Por eso ocr() nunca usa este resultado a
+     * ciegas: siempre lo compara contra el de la imagen original y se queda
+     * con el que reconozca más texto (ver reconocerTextoDeImagen() y el
+     * comentario en ocr()).
+     *
+     * Tampoco "entrena" a Tesseract ni lo convierte en un lector de
+     * letra cursiva o manuscrita unida: sigue siendo un motor pensado para
+     * texto IMPRESO. Lo que mejora acá es la calidad de la foto (luz,
+     * inclinación, resolución), no el tipo de letra — una foto de un
+     * cuaderno escrito a mano con letra unida va a seguir sin transcribirse
+     * de forma confiable, por más que se la preprocese.
+     *
+     * Si el comando de ImageMagick falla por cualquier motivo, se sigue con
+     * la imagen ORIGINAL sin preprocesar en vez de romper todo el OCR.
+     */
+    private static function preprocesarImagenParaOcr(string $rutaImagenEntrada, string $carpetaTrabajo): string
+    {
+        $rutaImagenPreprocesada = $carpetaTrabajo . DIRECTORY_SEPARATOR
+            . pathinfo($rutaImagenEntrada, PATHINFO_FILENAME) . '_preprocesada.png';
+
+        $comandoImageMagick = sprintf(
+            '"%s" "%s" -auto-orient -colorspace Gray -auto-level -gamma 2.2 -deskew 40%% -lat 25x25+5%% -resize 200%% "%s"',
+            RUTA_IMAGEMAGICK,
+            $rutaImagenEntrada,
+            $rutaImagenPreprocesada
+        );
+
+        try {
+            self::ejecutar($comandoImageMagick);
+        } catch (Exception $e) {
+            return $rutaImagenEntrada;
+        }
+
+        if (!file_exists($rutaImagenPreprocesada)) {
+            return $rutaImagenEntrada;
+        }
+
+        return $rutaImagenPreprocesada;
     }
 
     /**
