@@ -458,14 +458,37 @@ a:hover {
   margin-top: 16px;
 }
 
+/* Tarjeta simple de un solo lado (sin volteo) — Recuperar/Restablecer
+   contraseña. Mismo lenguaje visual que .pdflex-flip-face, pero sin
+   position:absolute ni rotación, porque acá solo hay un formulario. */
+.pdflex-auth-stage.pdflex-auth-stage-simple {
+  height: auto;
+}
+.pdflex-simple-card {
+  position: relative;
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 40px 70px rgba(43, 33, 24, 0.32), 0 14px 26px rgba(43, 33, 24, 0.2), 0 4px 8px rgba(43, 33, 24, 0.14);
+  padding: 34px 36px 32px;
+  display: flex;
+  flex-direction: column;
+}
+
 @media (max-height: 620px), (max-width: 480px) {
   .pdflex-auth-stage {
     height: auto;
     min-height: 480px;
   }
+  .pdflex-flip-scene {
+    position: static;
+  }
+  .pdflex-flip-inner {
+    display: grid;
+  }
   .pdflex-flip-face {
     position: relative;
     inset: auto;
+    grid-area: 1 / 1;
   }
 }
 

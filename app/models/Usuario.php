@@ -29,4 +29,12 @@ class Usuario
         $stmt->execute([$nombre, $correo, $hashContrasena, $rol]);
         return (int) $pdo->lastInsertId();
     }
+    // NUEVO — usado por AuthController::procesarRestablecer() al confirmar
+    // una recuperación de contraseña.
+    public static function actualizarContrasena(int $id, string $hashContrasena): void
+    {
+        $pdo = Database::getConnection();
+        $stmt = $pdo->prepare('UPDATE usuarios SET contrasena = ? WHERE id = ?');
+        $stmt->execute([$hashContrasena, $id]);
+    }
 }

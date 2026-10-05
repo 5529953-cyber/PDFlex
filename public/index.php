@@ -46,6 +46,10 @@ $router->post('/login', ['AuthController', 'procesarLogin']);
 $router->get('/registro', ['AuthController', 'registro']);
 $router->post('/registro', ['AuthController', 'procesarRegistro']);
 $router->get('/logout', ['AuthController', 'logout']);
+$router->get('/olvide', ['AuthController', 'olvide']); // NUEVO — pedir enlace de recuperación
+$router->post('/olvide', ['AuthController', 'procesarOlvide']);
+$router->get('/restablecer', ['AuthController', 'restablecer']); // NUEVO — elegir contraseña nueva con el token
+$router->post('/restablecer', ['AuthController', 'procesarRestablecer']);
 
 $router->get('/subir', ['UploadController', 'index']);
 $router->post('/subir', ['UploadController', 'procesar']);

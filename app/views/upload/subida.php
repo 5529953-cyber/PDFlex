@@ -144,6 +144,18 @@
           </div>
           <input type="hidden" name="nivel_compresion" id="nivelInput" value="media">
         </div>
+ 
+        <!-- NUEVO — aviso para "Convertir a Word": PDF con imágenes flotantes
+             (texto alrededor) o ciertas fuentes en cursiva pueden perder texto
+             o imágenes al convertir, por una limitación conocida del motor de
+             conversión (LibreOffice), no de este sistema. Se muestra/oculta
+             igual que compressionPanel, ver app.js. -->
+        <div class="alert alert-warning py-2 small" id="conversionWordHint" hidden>
+          Los PDF con imágenes flotantes (con texto alrededor) o con ciertas fuentes en cursiva
+          pueden perder algo de texto o imágenes al convertir a Word — es una limitación conocida
+          del motor de conversión, no un error del sistema. Para mejores resultados, usá PDF con
+          imágenes simples (sin texto envolviéndolas).
+        </div>
 
         <!-- Unir/Dividir: antes era un solo data-op="union_division"; el rediseño pide
              que cada mitad se resalte de forma independiente, así que ahora son dos

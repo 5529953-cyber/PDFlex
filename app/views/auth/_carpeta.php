@@ -54,7 +54,7 @@ $errorRegistro = $errorRegistro ?? null;
             <label class="pdflex-checkbox-label">
               <input type="checkbox" name="recordarme" value="1"> Recordarme
             </label>
-            <a href="#" class="pdflex-auth-link">¿Olvidaste tu contraseña?</a>
+            <a href="<?= BASE_URL ?>/olvide" class="pdflex-auth-link">¿Olvidaste tu contraseña?</a>
           </div>
 
           <button type="submit" class="pdflex-btn-primary">Entrar</button>

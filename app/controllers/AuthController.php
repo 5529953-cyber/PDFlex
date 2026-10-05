@@ -77,4 +77,85 @@ class AuthController extends Controller
         session_destroy();
         $this->redirigir('/login');
     }
+
+    // ---------------------------------------------------------------
+    // NUEVO — "¿Olvidaste tu contraseña?"
+    // ---------------------------------------------------------------
+
+    public function olvide(): void
+    {
+        $this->vista('auth/olvide', [], 'auth');
+    }
+
+    public function procesarOlvide(): void
+    {
+        $correo = trim($_POST['correo'] ?? '');
+
+        if ($correo === '') {
+            $this->vista('auth/olvide', ['error' => 'Ingresá tu correo.'], 'auth');
+            return;
+        }
+
+        $usuario = Usuario::buscarPorCorreo($correo);
+
+        if (!$usuario) {
+            // No confirmamos si el correo existe o no (evita filtrar qué
+            // correos están registrados) — mismo mensaje genérico.
+            $this->vista('auth/olvide', [
+                'error' => 'Si el correo está registrado vas a poder generar tu enlace. Revisá que esté bien escrito.',
+            ], 'auth');
+            return;
+        }
+
+        $token = RecuperacionContrasena::crear((int) $usuario['id']);
+        $enlace = BASE_URL . '/restablecer?token=' . $token;
+
+        // El enlace se muestra acá mismo porque no hay servidor de correo
+        // configurado en WAMP — en un sistema con correo real, este
+        // $enlace se enviaría por email en vez de mostrarse en pantalla.
+        $this->vista('auth/olvide', ['enlace' => $enlace], 'auth');
+    }
+
+    public function restablecer(): void
+    {
+        $token = $_GET['token'] ?? '';
+        $registro = $token !== '' ? RecuperacionContrasena::porToken($token) : null;
+
+        $this->vista('auth/restablecer', [
+            'token' => $token,
+            'tokenValido' => $registro !== null,
+        ], 'auth');
+    }
+
+    public function procesarRestablecer(): void
+    {
+        $token = $_POST['token'] ?? '';
+        $contrasena = $_POST['contrasena'] ?? '';
+        $confirmar = $_POST['confirmar'] ?? '';
+
+        $registro = $token !== '' ? RecuperacionContrasena::porToken($token) : null;
+
+        if (!$registro) {
+            $this->vista('auth/restablecer', [
+                'token' => $token,
+                'tokenValido' => false,
+            ], 'auth');
+            return;
+        }
+
+        if ($contrasena === '' || $contrasena !== $confirmar) {
+            $this->vista('auth/restablecer', [
+                'token' => $token,
+                'tokenValido' => true,
+                'error' => 'Las contraseñas no coinciden.',
+            ], 'auth');
+            return;
+        }
+
+        $hash = password_hash($contrasena, PASSWORD_DEFAULT);
+        Usuario::actualizarContrasena((int) $registro['usuario_id'], $hash);
+        RecuperacionContrasena::marcarUsado((int) $registro['id']);
+
+        $this->redirigir('/login');
+    }
 }

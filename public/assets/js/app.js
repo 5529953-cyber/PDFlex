@@ -30,6 +30,7 @@
   const opGrid = document.getElementById('opGrid');
   const operacionInput = document.getElementById('operacionInput');
   const compressionPanel = document.getElementById('compressionPanel');
+    const conversionWordHint = document.getElementById('conversionWordHint'); // NUEVO
   const nivelInput = document.getElementById('nivelInput');
   const btnProcesar = document.getElementById('btnProcesar');
   const overlayEnvio = document.getElementById('pdflexSubidaOverlay');
@@ -165,6 +166,7 @@
     operacionSeleccionada = tarjeta.dataset.op;
     operacionInput.value = operacionSeleccionada;
     compressionPanel.hidden = operacionSeleccionada !== 'compresion';
+        conversionWordHint.hidden = operacionSeleccionada !== 'conversion_pdf_word'; // NUEVO
     alCambiarOperacion(operacionAnterior, operacionSeleccionada);
     actualizarBoton();
   });

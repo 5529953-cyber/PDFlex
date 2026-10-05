@@ -84,3 +84,26 @@ CREATE TABLE archivos_temporales (
 ) ENGINE=InnoDB;
 
 CREATE INDEX idx_archivos_expiracion ON archivos_temporales(fecha_expiracion, eliminado);
+
+-- ------------------------------------------------------------
+-- Tabla: recuperaciones_contrasena
+-- Tokens de "¿Olvidaste tu contraseña?" — como el proyecto corre en
+-- WAMP local sin servidor de correo configurado, el enlace no se
+-- envía por email real: se muestra directo en pantalla (ver
+-- AuthController::procesarOlvide()). La tabla igual guarda vencimiento
+-- y estado "usado" para que el flujo sea el mismo que con correo real.
+-- ------------------------------------------------------------
+CREATE TABLE recuperaciones_contrasena (
+    id                  INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    usuario_id          INT UNSIGNED NOT NULL,
+    token               VARCHAR(64) NOT NULL UNIQUE,
+    fecha_creacion      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    fecha_expiracion    DATETIME NOT NULL,
+    usado               BOOLEAN NOT NULL DEFAULT FALSE,
+
+    CONSTRAINT fk_recuperacion_usuario
+        FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+        ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_recuperacion_token ON recuperaciones_contrasena(token);
