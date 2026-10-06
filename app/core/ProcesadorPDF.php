@@ -39,29 +39,102 @@ class ProcesadorPDF
     }
 
     /**
-     * Convierte un PDF a imagen (PNG) usando LibreOffice.
+     * Convierte las páginas elegidas de un PDF a imagen (PNG), usando
+     * Ghostscript (-sDEVICE=png16m, el mismo que ya usa ocr() para
+     * rasterizar — no se agrega ninguna herramienta nueva al proyecto).
+     *
+     * NUEVO (oct 2026, selector visual de páginas — mismo patrón que
+     * dividir()): antes esto convertía el PDF entero con LibreOffice, pero
+     * "--convert-to png" de LibreOffice solo genera UNA imagen (la primera
+     * página) sin importar cuántas tenga el PDF — por eso ahora se pide la
+     * selección de páginas, igual que en "Dividir". Si se elige una sola
+     * página, el resultado es un .png directo; si se eligen varias, se
+     * devuelve un .zip con una imagen por página (nombrada según el número
+     * de página real, no el orden en que Ghostscript las generó).
+     *
+     * @param string $listaPaginas Números de página separados por coma, EN
+     *                              ORDEN ASCENDENTE (ej. "1,3,4") — Ghostscript
+     *                              exige ese orden o falla con "Bad PageList".
+     *                              El selector visual (ver app.js,
+     *                              paginasInput) ya los entrega ordenados.
+     * @param string $carpetaTemp  Carpeta para la subcarpeta de trabajo
+     *                              temporal (igual que ocr()); se borra
+     *                              sola al terminar, incluso si algo falla.
      */
-    public static function pdfAImagen(string $rutaEntrada, string $carpetaSalida): string
+    public static function pdfAImagen(string $rutaEntrada, string $listaPaginas, string $carpetaTemp, string $carpetaSalida): string
     {
         self::validarArchivo($rutaEntrada);
 
-        $comando = sprintf(
-            '"%s" --headless --convert-to png --outdir "%s" "%s"',
-            RUTA_LIBREOFFICE,
-            $carpetaSalida,
-            $rutaEntrada
-        );
-
-        self::ejecutar($comando);
-
-        $nombreBase = pathinfo($rutaEntrada, PATHINFO_FILENAME);
-        $rutaSalida = $carpetaSalida . DIRECTORY_SEPARATOR . $nombreBase . '.png';
-
-        if (!file_exists($rutaSalida)) {
-            throw new Exception('LibreOffice no generó la imagen esperada: ' . $rutaSalida);
+        if ($listaPaginas === '' || !preg_match('/^\d+(,\d+)*$/', $listaPaginas)) {
+            throw new Exception('Selección de páginas inválida.');
         }
 
-        return $rutaSalida;
+        $numerosPagina = array_map('intval', explode(',', $listaPaginas));
+        $carpetaTrabajo = rtrim($carpetaTemp, '/\\') . DIRECTORY_SEPARATOR . uniqid('imagen_', true);
+
+        if (!mkdir($carpetaTrabajo, 0777, true) && !is_dir($carpetaTrabajo)) {
+            throw new Exception('No se pudo crear la carpeta temporal para la conversión a imagen.');
+        }
+
+        try {
+            $patronImagenes = $carpetaTrabajo . DIRECTORY_SEPARATOR . 'pagina_%03d.png';
+
+            $comandoGs = sprintf(
+                '"%s" -sDEVICE=png16m -r200 -dNOPAUSE -dQUIET -dBATCH -sPageList="%s" -o "%s" "%s"',
+                RUTA_GHOSTSCRIPT,
+                $listaPaginas,
+                $patronImagenes,
+                $rutaEntrada
+            );
+
+            self::ejecutar($comandoGs);
+
+            $imagenesGeneradas = glob($carpetaTrabajo . DIRECTORY_SEPARATOR . 'pagina_*.png');
+            sort($imagenesGeneradas);
+
+            if (empty($imagenesGeneradas) || count($imagenesGeneradas) !== count($numerosPagina)) {
+                throw new Exception('Ghostscript no generó las imágenes esperadas.');
+            }
+
+            $nombreBase = pathinfo($rutaEntrada, PATHINFO_FILENAME);
+
+            // Una sola página elegida: se devuelve el .png directo, igual
+            // que el comportamiento de siempre (sin zip de por medio).
+            if (count($imagenesGeneradas) === 1) {
+                $rutaSalida = $carpetaSalida . DIRECTORY_SEPARATOR . $nombreBase . '_pagina' . $numerosPagina[0] . '.png';
+
+                if (!rename($imagenesGeneradas[0], $rutaSalida)) {
+                    throw new Exception('No se pudo mover la imagen generada.');
+                }
+
+                return $rutaSalida;
+            }
+
+            // Varias páginas: se empaquetan en un .zip, una imagen por
+            // página, nombradas con el número de página real (Ghostscript
+            // las numera 001, 002... en orden de salida, no con el número
+            // de página real, así que se renombran acá al agregarlas).
+            $rutaZip = $carpetaSalida . DIRECTORY_SEPARATOR . $nombreBase . '_imagenes.zip';
+            $zip = new ZipArchive();
+
+            if ($zip->open($rutaZip, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+                throw new Exception('No se pudo crear el archivo ZIP con las imágenes.');
+            }
+
+            foreach ($imagenesGeneradas as $indice => $rutaImagen) {
+                $zip->addFile($rutaImagen, 'pagina_' . $numerosPagina[$indice] . '.png');
+            }
+
+            $zip->close();
+
+            if (!file_exists($rutaZip)) {
+                throw new Exception('No se generó el archivo ZIP esperado.');
+            }
+
+            return $rutaZip;
+        } finally {
+            self::limpiarCarpeta($carpetaTrabajo);
+        }
     }
 
     /**

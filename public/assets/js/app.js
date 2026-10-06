@@ -70,10 +70,18 @@
     fileError.textContent = '';
   }
 
+  // NUEVO (6 oct) — "Convertir a imagen" ahora también usa el selector
+  // visual de páginas (igual que "Dividir"), así que todo lo que antes
+  // solo preguntaba "operacionSeleccionada === 'division'" para saber si
+  // hay que exigir páginas marcadas, ahora pregunta esto.
+  function usaSelectorPaginas(op) {
+    return op === 'division' || op === 'conversion_pdf_imagen';
+  }
+
   function actualizarBoton() {
     if (operacionSeleccionada === 'union') {
       btnProcesar.disabled = archivosUnion.length < 2;
-    } else if (operacionSeleccionada === 'division') {
+    } else if (usaSelectorPaginas(operacionSeleccionada)) {
       btnProcesar.disabled = !(archivoValido && paginasSeleccionadas.size > 0);
     } else {
       btnProcesar.disabled = !(archivoValido && operacionSeleccionada);
@@ -123,7 +131,7 @@
     fileRow.hidden = !archivoValido;
     if (archivoValido) {
       mostrarArchivo(archivo);
-      if (operacionSeleccionada === 'division') cargarPaginasDivision(archivo);
+      if (usaSelectorPaginas(operacionSeleccionada)) cargarPaginasDivision(archivo);
     }
     actualizarBoton();
   }
@@ -197,7 +205,7 @@
     let esValido;
     if (operacionSeleccionada === 'union') {
       esValido = archivosUnion.length >= 2;
-    } else if (operacionSeleccionada === 'division') {
+    } else if (usaSelectorPaginas(operacionSeleccionada)) {
       esValido = archivoValido && paginasSeleccionadas.size > 0;
     } else {
       esValido = archivoValido && !!operacionSeleccionada;
@@ -319,7 +327,7 @@
         if (archivoValido) mostrarArchivo(archivoPrincipal);
       }
       archivosUnion = [];
-      if (actual === 'division') {
+      if (usaSelectorPaginas(actual)) {
         divisionPanel.hidden = false;
         if (archivoPrincipal && archivoValido) cargarPaginasDivision(archivoPrincipal);
       } else {

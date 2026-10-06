@@ -96,10 +96,16 @@ class UploadController extends Controller
 
         // 4. Para "división", validar que llegaron páginas seleccionadas
         // ANTES de guardar nada (evita mover archivos si esto va a fallar).
+        // NUEVO — "Convertir a imagen" ahora también usa el selector visual
+        // de páginas (mismo campo "paginas_seleccionadas" que "Dividir"),
+        // así que valida igual.
         $paginasSeleccionadas = trim($_POST['paginas_seleccionadas'] ?? '');
-        if ($tipoOperacion === 'division') {
+        if (in_array($tipoOperacion, ['division', 'conversion_pdf_imagen'], true)) {
             if ($paginasSeleccionadas === '' || !preg_match('/^\d+(,\d+)*$/', $paginasSeleccionadas)) {
-                $this->vista('upload/subida', ['error' => 'Elegí al menos una página para dividir.']);
+                $mensaje = $tipoOperacion === 'division'
+                    ? 'Elegí al menos una página para dividir.'
+                    : 'Elegí al menos una página para convertir a imagen.';
+                $this->vista('upload/subida', ['error' => $mensaje]);
                 return;
             }
         }
@@ -253,7 +259,7 @@ class UploadController extends Controller
                 return ProcesadorPDF::pdfAWord($rutasEntrada[0], $carpetaProcessed);
 
             case 'conversion_pdf_imagen':
-                return ProcesadorPDF::pdfAImagen($rutasEntrada[0], $carpetaProcessed);
+                return ProcesadorPDF::pdfAImagen($rutasEntrada[0], $paginasSeleccionadas, $carpetaTemp, $carpetaProcessed);
 
             case 'compresion':
                 $nombreComprimido = uniqid('comprimido_', true) . '.pdf';
