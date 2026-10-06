@@ -30,7 +30,10 @@
   const opGrid = document.getElementById('opGrid');
   const operacionInput = document.getElementById('operacionInput');
   const compressionPanel = document.getElementById('compressionPanel');
-    const conversionWordHint = document.getElementById('conversionWordHint'); // NUEVO
+  const conversionModal = document.getElementById('pdflexConversionModal'); // NUEVO
+  const conversionCancelar = document.getElementById('pdflexConversionCancelar');
+  const conversionContinuar = document.getElementById('pdflexConversionContinuar');
+  const conversionCerrar = document.getElementById('pdflexConversionCerrar');
   const nivelInput = document.getElementById('nivelInput');
   const btnProcesar = document.getElementById('btnProcesar');
   const overlayEnvio = document.getElementById('pdflexSubidaOverlay');
@@ -166,7 +169,6 @@
     operacionSeleccionada = tarjeta.dataset.op;
     operacionInput.value = operacionSeleccionada;
     compressionPanel.hidden = operacionSeleccionada !== 'compresion';
-        conversionWordHint.hidden = operacionSeleccionada !== 'conversion_pdf_word'; // NUEVO
     alCambiarOperacion(operacionAnterior, operacionSeleccionada);
     actualizarBoton();
   });
@@ -201,8 +203,35 @@
       esValido = archivoValido && !!operacionSeleccionada;
     }
 
-    if (esValido) enviarConFetch();
+    if (!esValido) return;
+
+    // NUEVO — "Convertir a Word" puede perder texto/imágenes en PDF con
+    // imágenes flotantes o fuentes en cursiva (limitación del motor de
+    // conversión, no del sistema — ver ProcesadorPDF::pdfAWord()). En vez
+    // de solo avisar, se interrumpe el envío con un modal de confirmación;
+    // el formulario recién se manda de verdad si el usuario elige
+    // "Continuar operación" (ver abajo). Para el resto de operaciones el
+    // comportamiento no cambió: se envía directo.
+    if (operacionSeleccionada === 'conversion_pdf_word' && conversionModal) {
+      conversionModal.hidden = false;
+      return;
+    }
+
+    enviarConFetch();
   });
+
+  if (conversionModal) {
+    const cerrarModalConversion = () => {
+      conversionModal.hidden = true;
+    };
+
+    conversionCancelar.addEventListener('click', cerrarModalConversion);
+    conversionCerrar.addEventListener('click', cerrarModalConversion);
+    conversionContinuar.addEventListener('click', () => {
+      cerrarModalConversion();
+      enviarConFetch();
+    });
+  }
 
   function enviarConFetch() {
     if (overlayEnvio) overlayEnvio.hidden = false;
