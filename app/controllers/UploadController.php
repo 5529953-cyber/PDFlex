@@ -26,6 +26,19 @@ class UploadController extends Controller
         'ocr',
     ];
 
+    // NUEVO (6 oct) — el selector "Baja/Media/Alta" de subida.php mandaba
+    // "nivel_compresion" pero nadie lo leía: Comprimir siempre usaba el
+    // nivel 'ebook' de Ghostscript sin importar lo que el usuario elegía.
+    // Este mapa conecta cada opción visible con el nivel real de Ghostscript
+    // (ProcesadorPDF::comprimir() ya acepta los 4: screen/ebook/printer/
+    // prepress). "Baja" = comprime poco (conserva más calidad, para
+    // imprimir) y "Alta" = comprime mucho (archivo más chico, para pantalla).
+    private const NIVELES_COMPRESION = [
+        'baja' => 'printer',
+        'media' => 'ebook',
+        'alta' => 'screen',
+    ];
+
     public function index(): void
     {
         $this->requiereSesion();
@@ -100,6 +113,11 @@ class UploadController extends Controller
         // de páginas (mismo campo "paginas_seleccionadas" que "Dividir"),
         // así que valida igual.
         $paginasSeleccionadas = trim($_POST['paginas_seleccionadas'] ?? '');
+
+        // NUEVO (6 oct) — ver comentario en NIVELES_COMPRESION arriba.
+        $nivelCompresion = $_POST['nivel_compresion'] ?? 'media';
+        $calidadCompresion = self::NIVELES_COMPRESION[$nivelCompresion] ?? 'ebook';
+
         if (in_array($tipoOperacion, ['division', 'conversion_pdf_imagen'], true)) {
             if ($paginasSeleccionadas === '' || !preg_match('/^\d+(,\d+)*$/', $paginasSeleccionadas)) {
                 $mensaje = $tipoOperacion === 'division'
@@ -148,7 +166,7 @@ class UploadController extends Controller
         try {
             Historial::actualizarEstado($historialId, 'procesando');
 
-            $rutaResultado = $this->ejecutarOperacion($tipoOperacion, $rutasGuardadas, $carpetaProcessed, $paginasSeleccionadas);
+            $rutaResultado = $this->ejecutarOperacion($tipoOperacion, $rutasGuardadas, $carpetaProcessed, $paginasSeleccionadas, $calidadCompresion);
 
             // 9. Guardar el resultado y marcar como completado
             $tamanoResultadoKb = (int) round(filesize($rutaResultado) / 1024);
@@ -250,7 +268,7 @@ class UploadController extends Controller
      * Ejecuta la operación real contra ProcesadorPDF. Compartido por
      * procesar() y reintentar() para no duplicar el switch.
      */
-    private function ejecutarOperacion(string $tipoOperacion, array $rutasEntrada, string $carpetaProcessed, string $paginasSeleccionadas = ''): string
+    private function ejecutarOperacion(string $tipoOperacion, array $rutasEntrada, string $carpetaProcessed, string $paginasSeleccionadas = '', string $calidadCompresion = 'ebook'): string
     {
         $carpetaTemp = __DIR__ . '/../../storage/temp/';
 
@@ -263,7 +281,7 @@ class UploadController extends Controller
 
             case 'compresion':
                 $nombreComprimido = uniqid('comprimido_', true) . '.pdf';
-                return ProcesadorPDF::comprimir($rutasEntrada[0], $carpetaProcessed . $nombreComprimido);
+                return ProcesadorPDF::comprimir($rutasEntrada[0], $carpetaProcessed . $nombreComprimido, $calidadCompresion);
 
             case 'union':
                 $nombreUnido = uniqid('unido_', true) . '.pdf';
