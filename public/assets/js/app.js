@@ -30,7 +30,10 @@
   const opGrid = document.getElementById('opGrid');
   const operacionInput = document.getElementById('operacionInput');
   const compressionPanel = document.getElementById('compressionPanel');
-    const conversionWordHint = document.getElementById('conversionWordHint'); // NUEVO
+  const conversionModal = document.getElementById('pdflexConversionModal'); // NUEVO
+  const conversionCancelar = document.getElementById('pdflexConversionCancelar');
+  const conversionContinuar = document.getElementById('pdflexConversionContinuar');
+  const conversionCerrar = document.getElementById('pdflexConversionCerrar');
   const nivelInput = document.getElementById('nivelInput');
   const btnProcesar = document.getElementById('btnProcesar');
   const overlayEnvio = document.getElementById('pdflexSubidaOverlay');
@@ -67,10 +70,18 @@
     fileError.textContent = '';
   }
 
+  // NUEVO (6 oct) — "Convertir a imagen" ahora también usa el selector
+  // visual de páginas (igual que "Dividir"), así que todo lo que antes
+  // solo preguntaba "operacionSeleccionada === 'division'" para saber si
+  // hay que exigir páginas marcadas, ahora pregunta esto.
+  function usaSelectorPaginas(op) {
+    return op === 'division' || op === 'conversion_pdf_imagen';
+  }
+
   function actualizarBoton() {
     if (operacionSeleccionada === 'union') {
       btnProcesar.disabled = archivosUnion.length < 2;
-    } else if (operacionSeleccionada === 'division') {
+    } else if (usaSelectorPaginas(operacionSeleccionada)) {
       btnProcesar.disabled = !(archivoValido && paginasSeleccionadas.size > 0);
     } else {
       btnProcesar.disabled = !(archivoValido && operacionSeleccionada);
@@ -120,7 +131,7 @@
     fileRow.hidden = !archivoValido;
     if (archivoValido) {
       mostrarArchivo(archivo);
-      if (operacionSeleccionada === 'division') cargarPaginasDivision(archivo);
+      if (usaSelectorPaginas(operacionSeleccionada)) cargarPaginasDivision(archivo);
     }
     actualizarBoton();
   }
@@ -166,7 +177,6 @@
     operacionSeleccionada = tarjeta.dataset.op;
     operacionInput.value = operacionSeleccionada;
     compressionPanel.hidden = operacionSeleccionada !== 'compresion';
-        conversionWordHint.hidden = operacionSeleccionada !== 'conversion_pdf_word'; // NUEVO
     alCambiarOperacion(operacionAnterior, operacionSeleccionada);
     actualizarBoton();
   });
@@ -195,14 +205,41 @@
     let esValido;
     if (operacionSeleccionada === 'union') {
       esValido = archivosUnion.length >= 2;
-    } else if (operacionSeleccionada === 'division') {
+    } else if (usaSelectorPaginas(operacionSeleccionada)) {
       esValido = archivoValido && paginasSeleccionadas.size > 0;
     } else {
       esValido = archivoValido && !!operacionSeleccionada;
     }
 
-    if (esValido) enviarConFetch();
+    if (!esValido) return;
+
+    // NUEVO — "Convertir a Word" puede perder texto/imágenes en PDF con
+    // imágenes flotantes o fuentes en cursiva (limitación del motor de
+    // conversión, no del sistema — ver ProcesadorPDF::pdfAWord()). En vez
+    // de solo avisar, se interrumpe el envío con un modal de confirmación;
+    // el formulario recién se manda de verdad si el usuario elige
+    // "Continuar operación" (ver abajo). Para el resto de operaciones el
+    // comportamiento no cambió: se envía directo.
+    if (operacionSeleccionada === 'conversion_pdf_word' && conversionModal) {
+      conversionModal.hidden = false;
+      return;
+    }
+
+    enviarConFetch();
   });
+
+  if (conversionModal) {
+    const cerrarModalConversion = () => {
+      conversionModal.hidden = true;
+    };
+
+    conversionCancelar.addEventListener('click', cerrarModalConversion);
+    conversionCerrar.addEventListener('click', cerrarModalConversion);
+    conversionContinuar.addEventListener('click', () => {
+      cerrarModalConversion();
+      enviarConFetch();
+    });
+  }
 
   function enviarConFetch() {
     if (overlayEnvio) overlayEnvio.hidden = false;
@@ -290,7 +327,7 @@
         if (archivoValido) mostrarArchivo(archivoPrincipal);
       }
       archivosUnion = [];
-      if (actual === 'division') {
+      if (usaSelectorPaginas(actual)) {
         divisionPanel.hidden = false;
         if (archivoPrincipal && archivoValido) cargarPaginasDivision(archivoPrincipal);
       } else {

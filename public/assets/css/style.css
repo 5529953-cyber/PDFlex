@@ -1408,6 +1408,16 @@ a:hover {
 #pdflexPreviewOverlay:not([hidden]) {
   display: flex;
 }
+
+/* Modal de confirmación de "Convertir a Word" (NUEVO, oct 2026) — mismo
+   div por id + [hidden], mismo motivo (ver comentario arriba). */
+#pdflexConversionModal {
+  display: none;
+}
+#pdflexConversionModal:not([hidden]) {
+  display: flex;
+}
+
 .pdflex-preview-modal {
   position: relative;
   background: #ffffff;

@@ -26,6 +26,19 @@ class UploadController extends Controller
         'ocr',
     ];
 
+    // NUEVO (6 oct) — el selector "Baja/Media/Alta" de subida.php mandaba
+    // "nivel_compresion" pero nadie lo leía: Comprimir siempre usaba el
+    // nivel 'ebook' de Ghostscript sin importar lo que el usuario elegía.
+    // Este mapa conecta cada opción visible con el nivel real de Ghostscript
+    // (ProcesadorPDF::comprimir() ya acepta los 4: screen/ebook/printer/
+    // prepress). "Baja" = comprime poco (conserva más calidad, para
+    // imprimir) y "Alta" = comprime mucho (archivo más chico, para pantalla).
+    private const NIVELES_COMPRESION = [
+        'baja' => 'printer',
+        'media' => 'ebook',
+        'alta' => 'screen',
+    ];
+
     public function index(): void
     {
         $this->requiereSesion();
@@ -96,10 +109,21 @@ class UploadController extends Controller
 
         // 4. Para "división", validar que llegaron páginas seleccionadas
         // ANTES de guardar nada (evita mover archivos si esto va a fallar).
+        // NUEVO — "Convertir a imagen" ahora también usa el selector visual
+        // de páginas (mismo campo "paginas_seleccionadas" que "Dividir"),
+        // así que valida igual.
         $paginasSeleccionadas = trim($_POST['paginas_seleccionadas'] ?? '');
-        if ($tipoOperacion === 'division') {
+
+        // NUEVO (6 oct) — ver comentario en NIVELES_COMPRESION arriba.
+        $nivelCompresion = $_POST['nivel_compresion'] ?? 'media';
+        $calidadCompresion = self::NIVELES_COMPRESION[$nivelCompresion] ?? 'ebook';
+
+        if (in_array($tipoOperacion, ['division', 'conversion_pdf_imagen'], true)) {
             if ($paginasSeleccionadas === '' || !preg_match('/^\d+(,\d+)*$/', $paginasSeleccionadas)) {
-                $this->vista('upload/subida', ['error' => 'Elegí al menos una página para dividir.']);
+                $mensaje = $tipoOperacion === 'division'
+                    ? 'Elegí al menos una página para dividir.'
+                    : 'Elegí al menos una página para convertir a imagen.';
+                $this->vista('upload/subida', ['error' => $mensaje]);
                 return;
             }
         }
@@ -142,7 +166,7 @@ class UploadController extends Controller
         try {
             Historial::actualizarEstado($historialId, 'procesando');
 
-            $rutaResultado = $this->ejecutarOperacion($tipoOperacion, $rutasGuardadas, $carpetaProcessed, $paginasSeleccionadas);
+            $rutaResultado = $this->ejecutarOperacion($tipoOperacion, $rutasGuardadas, $carpetaProcessed, $paginasSeleccionadas, $calidadCompresion);
 
             // 9. Guardar el resultado y marcar como completado
             $tamanoResultadoKb = (int) round(filesize($rutaResultado) / 1024);
@@ -244,7 +268,7 @@ class UploadController extends Controller
      * Ejecuta la operación real contra ProcesadorPDF. Compartido por
      * procesar() y reintentar() para no duplicar el switch.
      */
-    private function ejecutarOperacion(string $tipoOperacion, array $rutasEntrada, string $carpetaProcessed, string $paginasSeleccionadas = ''): string
+    private function ejecutarOperacion(string $tipoOperacion, array $rutasEntrada, string $carpetaProcessed, string $paginasSeleccionadas = '', string $calidadCompresion = 'ebook'): string
     {
         $carpetaTemp = __DIR__ . '/../../storage/temp/';
 
@@ -253,11 +277,11 @@ class UploadController extends Controller
                 return ProcesadorPDF::pdfAWord($rutasEntrada[0], $carpetaProcessed);
 
             case 'conversion_pdf_imagen':
-                return ProcesadorPDF::pdfAImagen($rutasEntrada[0], $carpetaProcessed);
+                return ProcesadorPDF::pdfAImagen($rutasEntrada[0], $paginasSeleccionadas, $carpetaTemp, $carpetaProcessed);
 
             case 'compresion':
                 $nombreComprimido = uniqid('comprimido_', true) . '.pdf';
-                return ProcesadorPDF::comprimir($rutasEntrada[0], $carpetaProcessed . $nombreComprimido);
+                return ProcesadorPDF::comprimir($rutasEntrada[0], $carpetaProcessed . $nombreComprimido, $calidadCompresion);
 
             case 'union':
                 $nombreUnido = uniqid('unido_', true) . '.pdf';

@@ -144,18 +144,6 @@
           </div>
           <input type="hidden" name="nivel_compresion" id="nivelInput" value="media">
         </div>
- 
-        <!-- NUEVO — aviso para "Convertir a Word": PDF con imágenes flotantes
-             (texto alrededor) o ciertas fuentes en cursiva pueden perder texto
-             o imágenes al convertir, por una limitación conocida del motor de
-             conversión (LibreOffice), no de este sistema. Se muestra/oculta
-             igual que compressionPanel, ver app.js. -->
-        <div class="alert alert-warning py-2 small" id="conversionWordHint" hidden>
-          Los PDF con imágenes flotantes (con texto alrededor) o con ciertas fuentes en cursiva
-          pueden perder algo de texto o imágenes al convertir a Word — es una limitación conocida
-          del motor de conversión, no un error del sistema. Para mejores resultados, usá PDF con
-          imágenes simples (sin texto envolviéndolas).
-        </div>
 
         <!-- Unir/Dividir: antes era un solo data-op="union_division"; el rediseño pide
              que cada mitad se resalte de forma independiente, así que ahora son dos
@@ -186,6 +174,44 @@
   </div>
 
 </form>
+
+<!-- Modal de confirmación — "Convertir a Word" (NUEVO, pruebas cruzadas,
+     oct 2026). Antes esto era un aviso fijo (alert-warning) siempre visible
+     al elegir "Convertir a Word"; ahora aparece como ventana emergente
+     recién al hacer clic en "Procesar archivo", ANTES de enviar el
+     formulario de verdad — el usuario elige si continúa o cancela desde
+     ahí. Mismo patrón que #pdflexPreviewOverlay (ver style.css): el
+     "display" se controla por id (#pdflexConversionModal / [hidden]),
+     nunca con un style="display:..." inline, porque ese le gana siempre
+     al [hidden] del navegador (bug ya corregido una vez por Marvin en el
+     modal de Vista previa — no repetirlo acá). -->
+<div id="pdflexConversionModal" hidden style="position:fixed;inset:0;background:rgba(20,16,12,0.55);align-items:center;justify-content:center;z-index:1000;padding:20px;">
+  <div class="pdflex-preview-modal" style="width:440px;">
+    <button type="button" id="pdflexConversionCerrar" class="pdflex-preview-cerrar" aria-label="Cerrar">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+    </button>
+
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-right:30px;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--tono6)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+        <path d="M10.3 3.9L2.5 17a1.5 1.5 0 0 0 1.3 2.3h16.4a1.5 1.5 0 0 0 1.3-2.3L13.7 3.9a1.5 1.5 0 0 0-2.6 0z"></path>
+        <path d="M12 9v4"></path>
+        <path d="M12 17h.01"></path>
+      </svg>
+      <div class="pdflex-auth-title" style="text-align:left;">Este PDF podría perder texto o imágenes</div>
+    </div>
+
+    <p style="font-size:13.5px;color:var(--ink-dim);line-height:1.5;margin-bottom:22px;">
+      Los PDF con imágenes flotantes (con texto alrededor) o con ciertas fuentes en cursiva pueden
+      perder algo de texto o imágenes al convertir a Word — es una limitación conocida del motor
+      de conversión, no un error del sistema. ¿Querés continuar igual?
+    </p>
+
+    <div style="display:flex;gap:10px;">
+      <button type="button" id="pdflexConversionCancelar" class="btn btn-outline-secondary" style="flex:1;border-radius:999px;font-size:14px;">Cancelar operación</button>
+      <button type="button" id="pdflexConversionContinuar" class="pdflex-btn-primary pdflex-btn-procesar" style="flex:1;margin-top:0;">Continuar operación</button>
+    </div>
+  </div>
+</div>
 
 <!-- Overlay de "procesando" (28 sep, Marvin): app.js envía este formulario
      con fetch() en vez de una petición normal para poder mostrar esto apenas
