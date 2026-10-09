@@ -37,4 +37,24 @@ class Usuario
         $stmt = $pdo->prepare('UPDATE usuarios SET contrasena = ? WHERE id = ?');
         $stmt->execute([$hashContrasena, $id]);
     }
+
+    // NUEVO — usado por PerfilController para mostrar y editar los datos
+    // de la cuenta del usuario que tiene la sesión iniciada.
+    public static function buscarPorId(int $id): ?array
+    {
+        $pdo = Database::getConnection();
+        $stmt = $pdo->prepare('SELECT * FROM usuarios WHERE id = ?');
+        $stmt->execute([$id]);
+        return $stmt->fetch() ?: null;
+    }
+
+    // NUEVO — usado por PerfilController::actualizar(). No toca `contrasena`
+    // ni `rol`: el cambio de contraseña tiene su propio método
+    // (actualizarContrasena) y el rol no es editable por el propio usuario.
+    public static function actualizarPerfil(int $id, string $nombre, string $correo): void
+    {
+        $pdo = Database::getConnection();
+        $stmt = $pdo->prepare('UPDATE usuarios SET nombre = ?, correo = ? WHERE id = ?');
+        $stmt->execute([$nombre, $correo, $id]);
+    }
 }

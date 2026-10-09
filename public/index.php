@@ -64,4 +64,8 @@ $router->get('/estado/consultar', ['EstadoController', 'consultar']); // endpoin
 $router->get('/estado/editar-ocr', ['EstadoController', 'editarOcr']); // NUEVO — corregir texto de un OCR completado
 $router->post('/estado/editar-ocr', ['EstadoController', 'guardarOcr']);
 
+$router->get('/perfil', ['PerfilController', 'index']); // NUEVO — datos de cuenta y cambio de contraseña
+$router->post('/perfil', ['PerfilController', 'actualizar']);
+$router->post('/perfil/contrasena', ['PerfilController', 'actualizarContrasena']);
+
 $router->resolver();

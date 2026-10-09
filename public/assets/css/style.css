@@ -85,6 +85,25 @@ a:hover {
   letter-spacing: 0.01em;
 }
 
+/* Avatar de /perfil: mismo anillo que la insignia de marca de arriba, pero
+   sencillo (un solo círculo, sin el doble anillo) y con la inicial del
+   nombre en vez del logo — evita meter una tarjeta/color nuevo solo para
+   esto. */
+.pdflex-perfil-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1.2px solid var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
 /* ============================================================
    Header del panel principal (Subir / Historial / Estado)
    Tarjeta flotante con logo cortado en el borde, pestañas con
@@ -1347,6 +1366,15 @@ a:hover {
   width: auto;
   padding: 12px 28px;
   margin-top: 0;
+}
+
+/* Botones de guardar en /perfil (datos de cuenta y cambio de contraseña):
+   mismo override de .pdflex-ocr-guardar — botón angosto en vez de
+   ancho-completo, porque acá conviven dos formularios en una sola tarjeta. */
+.pdflex-perfil-guardar {
+  width: auto;
+  padding: 12px 28px;
+  margin-top: 4px;
 }
 
 /* ============================================================

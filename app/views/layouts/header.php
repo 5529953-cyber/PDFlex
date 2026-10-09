@@ -39,7 +39,7 @@ $layout = $layout ?? 'app';
       </span>
       <span class="pdflex-logo-name"><span>PDFlex</span></span>
       <div class="pdflex-logo-menu" role="menu">
-        <a href="#" role="menuitem">Ver perfil</a>
+        <a href="<?= BASE_URL ?>/perfil" role="menuitem">Ver perfil</a>
         <a href="<?= BASE_URL ?>/logout" role="menuitem">Cerrar sesión</a>
       </div>
     </div>

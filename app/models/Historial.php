@@ -109,4 +109,18 @@ class Historial
         $fila = $stmt->fetch();
         return $fila !== false ? $fila : null;
     }
+
+    /**
+     * Cuántos archivos terminó de procesar (estado "completado") un
+     * usuario en total — dato simple que se muestra en /perfil.
+     */
+    public static function contarCompletados(int $usuarioId): int
+    {
+        $pdo = Database::getConnection();
+        $stmt = $pdo->prepare(
+            "SELECT COUNT(*) FROM historial WHERE usuario_id = ? AND estado = 'completado'"
+        );
+        $stmt->execute([$usuarioId]);
+        return (int) $stmt->fetchColumn();
+    }
 }
