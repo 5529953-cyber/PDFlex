@@ -40,7 +40,7 @@ $router = new Router();
 
 // --- Rutas (URL => [Controlador, método]) ---
 // Cada una corresponde a una de las pantallas ya diseñadas en los wireframes.
-$router->get('/', ['AuthController', 'login']);
+$router->get('/', ['BienvenidaController', 'index']); // NUEVO — pantalla de carga/entrada del sitio
 $router->get('/login', ['AuthController', 'login']);
 $router->post('/login', ['AuthController', 'procesarLogin']);
 $router->get('/registro', ['AuthController', 'registro']);

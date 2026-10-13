@@ -75,7 +75,12 @@ class AuthController extends Controller
     public function logout(): void
     {
         session_destroy();
-        $this->redirigir('/login');
+        // A la raíz, no directo a Login (9 oct, a pedido de Marvin): así
+        // se ve la animación de entrada de Bienvenida en vez de caer de
+        // golpe en la tarjeta de Login — BienvenidaController ya muestra
+        // "Iniciar sesión"/"Crear cuenta" automáticamente porque acá ya
+        // no queda sesión.
+        $this->redirigir('/');
     }
 
     // ---------------------------------------------------------------

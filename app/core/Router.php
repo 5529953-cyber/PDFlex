@@ -43,6 +43,15 @@ class Router
             return;
         }
 
+        // Ruta ya normalizada (sin la carpeta base), expuesta para que
+        // header.php la guarde como "última página" visitada — ver el
+        // bloque correspondiente ahí y BienvenidaController. Se guarda acá
+        // y no en $_SESSION directamente porque Router no sabe todavía si
+        // esta ruta va a terminar renderizando una pantalla real (vista())
+        // o es un endpoint de AJAX/descarga — esa decisión la toma
+        // header.php, que solo se incluye en el primer caso.
+        $_SERVER['PDFLEX_URI'] = $uri;
+
         [$controlador, $metodoControlador] = $accion;
         $instancia = new $controlador();
         $instancia->$metodoControlador();
