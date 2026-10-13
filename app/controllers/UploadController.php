@@ -39,6 +39,24 @@ class UploadController extends Controller
         'alta' => 'screen',
     ];
 
+    // Procesamiento por lotes (extra, oct 2026) — Comprimir, Convertir a
+    // Word y OCR admiten elegir varios archivos a la vez; cada uno se
+    // procesa y se registra en `historial` por separado (ver
+    // procesarLote()), para que uno pueda fallar sin afectar a los demás.
+    // Queda afuera "union" (ya es multi-archivo, pero para combinarlos en
+    // uno solo) y "division"/"conversion_pdf_imagen" (dependen del selector
+    // de páginas de UN solo archivo — ver $paginasSeleccionadas más abajo,
+    // no tendría sentido aplicarlo a varios archivos distintos a la vez).
+    // El límite de cantidad es solo para no encadenar de más Ghostscript/
+    // LibreOffice/Tesseract en una sola petición síncrona.
+    private const OPERACIONES_POR_LOTES = ['compresion', 'conversion_pdf_word', 'ocr'];
+    private const MAX_ARCHIVOS_LOTE = 10;
+
+    private static function permiteLotes(string $tipoOperacion): bool
+    {
+        return in_array($tipoOperacion, self::OPERACIONES_POR_LOTES, true);
+    }
+
     public function index(): void
     {
         $this->requiereSesion();
@@ -74,8 +92,18 @@ class UploadController extends Controller
                 return;
             }
         } elseif (count($archivos) > 1) {
-            $this->vista('upload/subida', ['error' => 'Esta operación admite un solo archivo.']);
-            return;
+            // Procesamiento por lotes (extra, oct 2026): algunas operaciones
+            // sí admiten varios archivos a la vez (ver OPERACIONES_POR_LOTES);
+            // el resto (Unir aparte, Dividir y Convertir a imagen) se queda
+            // con la regla de siempre, un solo archivo.
+            if (!self::permiteLotes($tipoOperacion)) {
+                $this->vista('upload/subida', ['error' => 'Esta operación admite un solo archivo.']);
+                return;
+            }
+            if (count($archivos) > self::MAX_ARCHIVOS_LOTE) {
+                $this->vista('upload/subida', ['error' => 'Podés procesar hasta ' . self::MAX_ARCHIVOS_LOTE . ' archivos a la vez.']);
+                return;
+            }
         }
 
         // 3. Validar cada archivo individualmente
@@ -128,6 +156,17 @@ class UploadController extends Controller
             }
         }
 
+        // Procesamiento por lotes (extra, oct 2026): si llegó más de un
+        // archivo y la operación lo permite (ver OPERACIONES_POR_LOTES), cada
+        // archivo se guarda, procesa y registra en `historial` por separado
+        // — no entra al flujo de abajo (que arma UN solo registro de
+        // historial para todo lo subido, pensado para union/archivo único).
+        if (count($archivos) > 1 && self::permiteLotes($tipoOperacion)) {
+            $this->procesarLote($tipoOperacion, $archivos, $calidadCompresion);
+            $this->redirigir('/estado');
+            return;
+        }
+
         // 5. Guardar todos los archivos con nombre único
         $rutasGuardadas = [];
         $nombresOriginales = [];
@@ -162,6 +201,15 @@ class UploadController extends Controller
         // 8. Disparar el procesamiento real según la operación elegida.
         $carpetaProcessed = __DIR__ . '/../../storage/processed/';
         $tamanoOriginalKb = (int) round(array_sum(array_map('filesize', $rutasGuardadas)) / 1024);
+
+        // 13 oct 2026: misma red de seguridad que procesarLote() (ver ahí el
+        // porqué) — esta ruta de archivo único tenía el mismo hueco: un
+        // archivo pesado/complejo (p. ej. OCR sobre un documento con una
+        // página de tamaño banner) puede agotar max_execution_time, lo cual
+        // es un Fatal error que el catch de abajo NO atrapa, dejando la fila
+        // pegada en "procesando" para siempre.
+        set_time_limit(self::SEGUNDOS_POR_OPERACION);
+        $this->protegerContraTimeout($historialId);
 
         try {
             Historial::actualizarEstado($historialId, 'procesando');
@@ -237,6 +285,12 @@ class UploadController extends Controller
         $carpetaProcessed = __DIR__ . '/../../storage/processed/';
         $tamanoOriginalKb = (int) round(filesize($rutasEntrada[0]) / 1024);
 
+        // Misma red de seguridad que procesar() / procesarLote() — un
+        // reintento puede volver a toparse con el mismo archivo pesado que
+        // causó el error original.
+        set_time_limit(self::SEGUNDOS_POR_OPERACION);
+        $this->protegerContraTimeout($id);
+
         try {
             Historial::actualizarEstado($id, 'procesando');
 
@@ -262,6 +316,104 @@ class UploadController extends Controller
         }
 
         $this->redirigir('/estado');
+    }
+
+    /**
+     * Procesamiento por lotes (extra, oct 2026): guarda, procesa y registra
+     * en `historial` cada archivo del lote como su PROPIO registro
+     * independiente — a diferencia del flujo normal de procesar() (un solo
+     * registro de historial para todo lo subido), acá cada archivo tiene su
+     * propia tarjeta en /estado y su propio ciclo de vida. Si uno falla
+     * (archivo corrupto, Ghostscript/LibreOffice/Tesseract se cae, etc.), se
+     * marca ese registro como "error" y se sigue con el resto — no tendría
+     * sentido tirar todo el lote por un solo archivo problemático.
+     */
+    // Presupuesto de tiempo por operación/archivo (segundos). En procesar(),
+    // reintentar() y procesarLote() se reinicia (set_time_limit) ANTES de
+    // cada operación — no alcanza con ponerlo una sola vez al principio
+    // porque, en un lote de varios archivos, el tiempo ya gastado en los
+    // primeros se restaría del límite de PHP y el último terminaría
+    // fallando por timeout aunque, solo, hubiera tardado nada.
+    private const SEGUNDOS_POR_OPERACION = 180;
+
+    /**
+     * Red de seguridad (13 oct 2026, tras un caso real: OCR sobre un
+     * documento con una página de tamaño banner agotó max_execution_time y
+     * el proceso murió de golpe en pleno ejecutarOperacion() — un "Fatal
+     * error" por timeout NO es una Exception normal, así que ningún
+     * try/catch lo atrapa, y esa fila se quedaba en "procesando" para
+     * siempre, girando en /estado sin que nadie la tocara otra vez).
+     *
+     * Esta función queda registrada para correr IGUAL aunque el script
+     * muera así de abrupto, y deja la fila en "error" en vez de colgada. Si
+     * la operación termina bien, el estado ya no es "procesando" cuando esto
+     * corre (PHP ejecuta TODAS las funciones de shutdown registradas, haya
+     * o no error) y entonces no hace nada.
+     */
+    private function protegerContraTimeout(int $historialId): void
+    {
+        register_shutdown_function(function () use ($historialId) {
+            $registro = Historial::porId($historialId, (int) $_SESSION['usuario_id']);
+            if ($registro !== null && $registro['estado'] === 'procesando') {
+                Historial::actualizarEstado(
+                    $historialId,
+                    'error',
+                    'El proceso tardó demasiado y el servidor lo interrumpió (archivo muy pesado o complejo para esta operación).'
+                );
+            }
+        });
+    }
+
+    private function procesarLote(string $tipoOperacion, array $archivos, string $calidadCompresion): void
+    {
+        $carpetaProcessed = __DIR__ . '/../../storage/processed/';
+        $fechaExpiracion = date('Y-m-d H:i:s', strtotime('+24 hours'));
+
+        foreach ($archivos as $archivo) {
+            // Si PHP tiene un max_execution_time distinto de 0 (ilimitado),
+            // esto le da a CADA archivo del lote su propio presupuesto de
+            // tiempo completo, en vez de ir gastando uno solo compartido
+            // entre todos. set_time_limit() no hace nada si el ini ya es 0.
+            set_time_limit(self::SEGUNDOS_POR_OPERACION);
+
+            $extension = strtolower(pathinfo($archivo['name'], PATHINFO_EXTENSION));
+            $nombreFisico = uniqid('pdf_', true) . '.' . $extension;
+            $rutaDestino = __DIR__ . '/../../storage/uploads/' . $nombreFisico;
+
+            $historialId = Historial::registrar($_SESSION['usuario_id'], $tipoOperacion, $archivo['name']);
+
+            if (!move_uploaded_file($archivo['tmp_name'], $rutaDestino)) {
+                Historial::actualizarEstado($historialId, 'error', 'Error interno al guardar el archivo.');
+                continue;
+            }
+
+            ArchivoTemporal::registrar($historialId, $rutaDestino, $fechaExpiracion);
+            $tamanoOriginalKb = (int) round(filesize($rutaDestino) / 1024);
+
+            $this->protegerContraTimeout($historialId);
+
+            try {
+                Historial::actualizarEstado($historialId, 'procesando');
+
+                $rutaResultado = $this->ejecutarOperacion($tipoOperacion, [$rutaDestino], $carpetaProcessed, '', $calidadCompresion);
+
+                $tamanoResultadoKb = (int) round(filesize($rutaResultado) / 1024);
+                Historial::guardarResultado($historialId, basename($rutaResultado), $tamanoOriginalKb, $tamanoResultadoKb);
+                Historial::actualizarEstado($historialId, 'completado');
+                ArchivoTemporal::registrar($historialId, $rutaResultado, $fechaExpiracion);
+
+                // OCR: ver el mismo comentario en procesar() — rastrea el .txt
+                // "hermano" del PDF para "Editar texto" en /estado.
+                if ($tipoOperacion === 'ocr') {
+                    $rutaTxtSidecar = ProcesadorPDF::rutaSidecarTexto($rutaResultado);
+                    if (file_exists($rutaTxtSidecar)) {
+                        ArchivoTemporal::registrar($historialId, $rutaTxtSidecar, $fechaExpiracion);
+                    }
+                }
+            } catch (Exception $e) {
+                Historial::actualizarEstado($historialId, 'error', $e->getMessage());
+            }
+        }
     }
 
     /**

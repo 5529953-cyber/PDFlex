@@ -605,6 +605,114 @@ a:hover {
   color: var(--ink-dim);
 }
 
+/* Notificaciones de proceso terminado (extra, oct 2026): un banner chico
+   para pedir permiso de notificaciones del navegador (solo aparece si hay
+   al menos un proceso "en_curso" y el navegador aún no decidió nada — ver
+   pedirPermisoNotificaciones() en app.js), y un "toast" que aparece cuando
+   un proceso pasa de en_curso a completado/error, aunque el usuario esté en
+   otra pestaña viendo otra pantalla de PDFlex. Usa --estado-progreso (azul)
+   para el banner, igual que el resto de la señal "en curso" en esta
+   pantalla; el toast se colorea según el resultado (verde/Tono 6) igual que
+   las tarjetas de Estado. */
+.pdflex-notif-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--estado-progreso-bg);
+  border: 1px solid var(--estado-progreso);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  font-size: 13.5px;
+  color: var(--ink);
+}
+.pdflex-notif-banner[hidden] {
+  display: none;
+}
+.pdflex-notif-banner-icon {
+  flex: none;
+  display: inline-flex;
+  color: var(--estado-progreso);
+}
+.pdflex-notif-banner-texto {
+  flex: 1;
+}
+.pdflex-notif-banner-acciones {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+.pdflex-notif-banner-btn {
+  border: none;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pdflex-notif-banner-btn.activar {
+  background: var(--estado-progreso);
+  color: #fff;
+}
+.pdflex-notif-banner-btn.ahora-no {
+  background: transparent;
+  color: var(--ink-dim);
+}
+
+.pdflex-toast-wrap {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 340px;
+}
+.pdflex-toast {
+  background: var(--surface);
+  border-left: 4px solid var(--good, #1c8a5a);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(46, 44, 38, 0.22);
+  padding: 12px 14px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  animation: pdflex-toast-entrada 0.25s ease-out;
+}
+.pdflex-toast.error {
+  border-left-color: var(--tono6);
+}
+.pdflex-toast-icon {
+  flex: none;
+  margin-top: 1px;
+  color: var(--good, #1c8a5a);
+}
+.pdflex-toast.error .pdflex-toast-icon {
+  color: var(--tono6);
+}
+.pdflex-toast-texto {
+  flex: 1;
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.4;
+}
+.pdflex-toast-nombre {
+  font-weight: 600;
+}
+.pdflex-toast-cerrar {
+  flex: none;
+  background: none;
+  border: none;
+  color: var(--ink-dim);
+  cursor: pointer;
+  padding: 2px;
+}
+@keyframes pdflex-toast-entrada {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .pdflex-upload-grid {
   display: flex;
   gap: 32px;
@@ -818,14 +926,16 @@ a:hover {
    Miniaturas reales renderizadas con pdf.js directo en el navegador.
    ============================================================ */
 .pdflex-union-panel,
-.pdflex-division-panel {
+.pdflex-division-panel,
+.pdflex-lote-panel {
   margin-top: 1rem;
   padding-top: 1rem;
   border-top: 1.4px dashed var(--line-strong);
 }
 
 .pdflex-union-header,
-.pdflex-division-header {
+.pdflex-division-header,
+.pdflex-lote-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -835,7 +945,8 @@ a:hover {
   margin-bottom: 0.7rem;
 }
 
-.pdflex-union-add {
+.pdflex-union-add,
+.pdflex-lote-add {
   background: none;
   border: none;
   color: var(--acento);
@@ -844,7 +955,8 @@ a:hover {
   cursor: pointer;
   padding: 0.15rem 0.3rem;
 }
-.pdflex-union-add:hover {
+.pdflex-union-add:hover,
+.pdflex-lote-add:hover {
   text-decoration: underline;
 }
 
@@ -947,10 +1059,68 @@ a:hover {
 }
 
 .pdflex-union-hint,
-.pdflex-division-hint {
+.pdflex-division-hint,
+.pdflex-lote-hint {
   font-size: 0.75rem;
   color: var(--ink-dim);
   margin-top: 0.5rem;
+}
+
+/* Procesamiento por lotes (extra, oct 2026): lista simple de archivos a
+   procesar — a diferencia de "Unir" no hace falta reordenar ni mostrar
+   miniatura de página (acá cada archivo se procesa por separado, no se
+   combinan), así que es una fila más liviana: ícono genérico + nombre +
+   tamaño + quitar. */
+.pdflex-lote-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pdflex-lote-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border: 1.4px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 0.45rem 0.6rem;
+}
+
+.pdflex-lote-icon {
+  color: var(--acento);
+  flex-shrink: 0;
+  display: flex;
+}
+
+.pdflex-lote-info {
+  flex: 1;
+  min-width: 0;
+}
+.pdflex-lote-name {
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pdflex-lote-size {
+  font-size: 0.7rem;
+  color: var(--ink-dim);
+}
+
+.pdflex-lote-remove {
+  background: none;
+  border: none;
+  color: var(--ink-dim);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.1rem;
+  flex-shrink: 0;
+}
+.pdflex-lote-remove:hover {
+  color: var(--acento);
 }
 
 .pdflex-division-grid {

@@ -22,9 +22,17 @@
          se listan todas sus páginas en una cuadrícula y el usuario elige
          cuáles incluir. La selección viaja en el input oculto
          "paginas_seleccionadas" (números separados por coma, ej. "1,3,4").
-     TODO (Backend, s5-b1): leer $_FILES['archivos'] (arreglo) cuando
-     $_POST['operacion'] === 'union', en vez de $_FILES['archivo']; y leer
-     $_POST['paginas_seleccionadas'] cuando sea "division". -->
+
+     Procesamiento por lotes (extra, oct 2026): "Comprimir", "Convertir a
+     Word" y "OCR" admiten elegir varios archivos a la vez (ver
+     permiteLotes() en app.js) — el input pasa a name="archivo[]", igual que
+     "archivos[]" en Unir, así que $_FILES['archivo'] le llega a Backend como
+     arreglo (UploadController ya sabe leer ambas formas, ver
+     normalizarArchivos()). Cada archivo del lote se procesa y se registra en
+     `historial` por separado, para que uno pueda fallar sin afectar a los
+     demás. No aplica a "Unir" (combina varios en uno) ni a "Dividir"/
+     "Convertir a imagen" (dependen del selector de páginas de un solo
+     archivo). -->
 <?php $error = $error ?? null; ?>
 
 <!-- pdf.js (versión con build clásico, expone window.pdfjsLib) — solo se usa
@@ -103,6 +111,22 @@
         <div class="pdflex-division-grid" id="divisionGrid"></div>
         <div class="pdflex-division-hint" id="divisionHint"></div>
         <input type="hidden" name="paginas_seleccionadas" id="paginasInput" value="">
+      </div>
+
+      <!-- Procesamiento por lotes (extra, oct 2026): para Comprimir,
+           Convertir a Word y OCR se puede elegir más de un archivo a la
+           vez; cada uno se procesa como su propia fila en Historial/Estado,
+           de forma independiente (si uno falla, no afecta a los demás). No
+           aplica a Unir (ya combina varios en uno) ni a Dividir/Convertir a
+           imagen (dependen del selector de páginas de UN solo archivo).
+           Ver permiteLotes() en app.js. -->
+      <div class="pdflex-lote-panel" id="lotePanel" hidden>
+        <div class="pdflex-lote-header">
+          <span>Archivos a procesar</span>
+          <button type="button" class="pdflex-lote-add" id="loteAdd">+ Agregar otro archivo</button>
+        </div>
+        <div class="pdflex-lote-items" id="loteItems"></div>
+        <div class="pdflex-lote-hint" id="loteHint"></div>
       </div>
     </div>
   </div>

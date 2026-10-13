@@ -19,6 +19,27 @@
 <div class="pdflex-estado-title">Estado de tus procesos</div>
 <div class="pdflex-estado-subtitle">Sigue el avance de lo que estás procesando en este momento.</div>
 
+<!-- Notificaciones de proceso terminado (extra, oct 2026): app.js lo muestra
+     solo si hay al menos un proceso "en_curso" en esta carga y el navegador
+     todavía no decidió nada sobre notificaciones (Notification.permission
+     === "default"). "Activar" dispara Notification.requestPermission() —
+     tiene que ser desde un clic real, el navegador ignora (o bloquea) el
+     permiso si se pide solo al cargar la página. -->
+<div class="pdflex-notif-banner" id="pdflexNotifBanner" hidden>
+  <span class="pdflex-notif-banner-icon" aria-hidden="true">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+  </span>
+  <div class="pdflex-notif-banner-texto">¿Querés que te avisemos cuando terminen tus procesos, aunque estés en otra pestaña?</div>
+  <div class="pdflex-notif-banner-acciones">
+    <button type="button" class="pdflex-notif-banner-btn activar" id="pdflexNotifActivar">Activar</button>
+    <button type="button" class="pdflex-notif-banner-btn ahora-no" id="pdflexNotifAhoraNo">Ahora no</button>
+  </div>
+</div>
+
+<!-- Contenedor de los "toasts" (avisos flotantes) que aparecen cuando un
+     proceso termina — ver notificarProcesoTerminado() en app.js. -->
+<div class="pdflex-toast-wrap" id="pdflexToastWrap"></div>
+
 <div class="pdflex-estado-list">
   <?php if (empty($procesos)): ?>
     <div class="pdflex-estado-empty">No tienes procesos en este momento.</div>

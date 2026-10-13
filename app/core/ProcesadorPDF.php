@@ -290,13 +290,23 @@ class ProcesadorPDF
                 // pasar por Ghostscript (eso solo rasteriza PDFs).
                 $imagenes = [$rutaEntrada];
             } else {
-                // 1. Rasterizar cada página del PDF a PNG (300 dpi: buen
-                // equilibrio entre calidad de reconocimiento y tiempo/peso)
+                // 1. Rasterizar cada página del PDF a PNG. El DPI ya NO es
+                // fijo en 300 — se calcula según el tamaño físico más grande
+                // entre las páginas del PDF (ver determinarDpiParaRasterizar
+                // más abajo), porque Ghostscript rasteriza TODO el documento
+                // en una sola pasada con el mismo -r para cada página: un PDF
+                // de tamaño carta/A4 normal sigue dando ~300dpi (sin cambios
+                // de comportamiento), pero una página fuera de lo común (p.
+                // ej. un banner/póster insertado como una página más de un
+                // documento) da un DPI bastante menor, evitando que esa sola
+                // página genere una imagen de decenas de megapíxeles.
                 $patronImagenes = $carpetaTrabajo . DIRECTORY_SEPARATOR . 'pagina_%03d.png';
+                $dpiRasterizado = self::determinarDpiParaRasterizar($rutaEntrada);
 
                 $comandoGs = sprintf(
-                    '"%s" -sDEVICE=png16m -r300 -dNOPAUSE -dQUIET -dBATCH -o "%s" "%s"',
+                    '"%s" -sDEVICE=png16m -r%d -dNOPAUSE -dQUIET -dBATCH -o "%s" "%s"',
                     RUTA_GHOSTSCRIPT,
+                    $dpiRasterizado,
                     $patronImagenes,
                     $rutaEntrada
                 );
@@ -366,6 +376,70 @@ class ProcesadorPDF
         }
     }
 
+    // Causa raíz del error real de Xavier (13 oct 2026, "Maximum execution
+    // time of 120 seconds exceeded"): rasterizar a un DPI fijo sin mirar el
+    // tamaño físico de la página. Un banner de 60x80cm a 300dpi da ~7087x9450
+    // px (67 megapíxeles) — eso solo ya tarda demasiado en Ghostscript, y lo
+    // que sigue (preprocesarImagenParaOcr, sobre todo su -lat) tarda mucho
+    // más todavía sobre una imagen así de pesada. Apareció primero con el
+    // banner como archivo único, y de nuevo con el banner insertado como una
+    // página más dentro de otro documento — ambos casos pasan por acá.
+    //
+    // ANCHO_OBJETIVO_PX es el ancho/alto máximo (en px) que se permite que
+    // tenga el lado más largo de la página más grande del PDF — pero esto
+    // SOLO entra en juego cuando el DPI que daría de otra forma (DPI_MAXIMO)
+    // ya se pasaría de ese límite. 5100px equivale a 17 pulgadas a 300dpi, es
+    // decir que cualquier página de hasta tabloid/ledger/A3 (los tamaños de
+    // papel "grandes" normales) sigue rasterizándose a los mismos 300dpi de
+    // siempre — CERO cambio de comportamiento para carta, A4, oficio, legal,
+    // A3, etc. Nada más una página fuera de ese rango (como un banner o
+    // póster insertado en el documento) baja de DPI.
+    private const ANCHO_OBJETIVO_PX = 5100;
+    private const DPI_MINIMO = 100;
+    private const DPI_MAXIMO = 300;
+
+    /**
+     * Calcula a qué DPI rasterizar un PDF para OCR, a partir del tamaño
+     * físico (en puntos, 1/72 pulgada) de sus páginas — leído con una
+     * búsqueda simple de "/MediaBox [...]" en el archivo, sin depender de
+     * ninguna herramienta externa nueva. Si no se encuentra ningún
+     * /MediaBox (puede pasar con PDFs que comprimen sus objetos de otra
+     * forma), se usa DPI_MAXIMO como antes — nunca falla por esto, en el
+     * peor caso simplemente no reduce el DPI.
+     */
+    private static function determinarDpiParaRasterizar(string $rutaEntrada): int
+    {
+        $contenido = @file_get_contents($rutaEntrada);
+
+        if ($contenido === false) {
+            return self::DPI_MAXIMO;
+        }
+
+        $ladoMasLargoPts = 0.0;
+
+        if (preg_match_all(
+            '/\/MediaBox\s*\[\s*(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s+(-?[\d.]+)\s*\]/',
+            $contenido,
+            $coincidencias,
+            PREG_SET_ORDER
+        )) {
+            foreach ($coincidencias as $m) {
+                $ancho = abs((float) $m[3] - (float) $m[1]);
+                $alto = abs((float) $m[4] - (float) $m[2]);
+                $ladoMasLargoPts = max($ladoMasLargoPts, $ancho, $alto);
+            }
+        }
+
+        if ($ladoMasLargoPts <= 0) {
+            return self::DPI_MAXIMO;
+        }
+
+        $pulgadas = $ladoMasLargoPts / 72;
+        $dpi = (int) round(self::ANCHO_OBJETIVO_PX / $pulgadas);
+
+        return max(self::DPI_MINIMO, min(self::DPI_MAXIMO, $dpi));
+    }
+
     /**
      * Corre Tesseract sobre una imagen (modo "tsv": texto + confianza 0-100
      * por palabra) y devuelve ya el texto filtrado por confianza
@@ -430,15 +504,33 @@ class ProcesadorPDF
      * Si el comando de ImageMagick falla por cualquier motivo, se sigue con
      * la imagen ORIGINAL sin preprocesar en vez de romper todo el OCR.
      */
+    // Arriba de este ancho (en px), la imagen ya tiene de sobra resolución
+    // para Tesseract (una página normal a 300dpi ronda 2500px de ancho) —
+    // agrandarla más al doble (-resize 200%) no ayuda al reconocimiento y sí
+    // puede disparar el costo de -lat (umbral adaptativo local) hasta
+    // volverse impracticable. Encontrado 13 oct 2026 (Xavier, pruebas
+    // cruzadas de lotes): un OCR sobre el banner de Expotecnia (una página
+    // de 60x80cm, 7087x9450px a 300dpi) agotaba los 120s de
+    // max_execution_time de PHP en este mismo paso — probado a mano con ese
+    // archivo: sin este límite, ImageMagick llegaba a agotar su propia
+    // memoria de caché; quitando el -resize 200% para imágenes así de
+    // grandes, el mismo preprocesamiento termina en bastante menos tiempo.
+    private const ANCHO_MAXIMO_PARA_AGRANDAR = 2500;
+
     private static function preprocesarImagenParaOcr(string $rutaImagenEntrada, string $carpetaTrabajo): string
     {
         $rutaImagenPreprocesada = $carpetaTrabajo . DIRECTORY_SEPARATOR
             . pathinfo($rutaImagenEntrada, PATHINFO_FILENAME) . '_preprocesada.png';
 
+        $dimensiones = @getimagesize($rutaImagenEntrada);
+        $anchoOriginal = $dimensiones[0] ?? 0;
+        $agrandar = $anchoOriginal > 0 && $anchoOriginal <= self::ANCHO_MAXIMO_PARA_AGRANDAR;
+
         $comandoImageMagick = sprintf(
-            '"%s" "%s" -auto-orient -colorspace Gray -auto-level -gamma 2.2 -deskew 40%% -lat 25x25+5%% -resize 200%% "%s"',
+            '"%s" "%s" -auto-orient -colorspace Gray -auto-level -gamma 2.2 -deskew 40%% -lat 25x25+5%%%s "%s"',
             RUTA_IMAGEMAGICK,
             $rutaImagenEntrada,
+            $agrandar ? ' -resize 200%' : '',
             $rutaImagenPreprocesada
         );
 

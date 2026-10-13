@@ -6,6 +6,11 @@
 (function () {
   const MAX_BYTES = 20 * 1024 * 1024; // 20 MB, igual que el wireframe
 
+  // Procesamiento por lotes (extra, oct 2026) — debe coincidir con
+  // UploadController::MAX_ARCHIVOS_LOTE en el Backend; es solo para avisar
+  // antes de enviar, la validación real (la que importa) es la del servidor.
+  const MAX_ARCHIVOS_LOTE = 10;
+
   // OCR (29 sep, Marvin): Tesseract lee una imagen directo, así que para esa
   // operación también se acepta una foto/imagen suelta, sin meterla antes en
   // un PDF. Debe coincidir con UploadController::MIME_IMAGEN_PERMITIDOS /
@@ -51,9 +56,17 @@
   const paginasInput = document.getElementById('paginasInput');
   const tienePdfJs = typeof window.pdfjsLib !== 'undefined';
 
+  // Procesamiento por lotes (extra, oct 2026): Comprimir / Convertir a Word /
+  // OCR admiten elegir varios archivos a la vez — ver nota en subida.php.
+  const lotePanel = document.getElementById('lotePanel');
+  const loteItems = document.getElementById('loteItems');
+  const loteAdd = document.getElementById('loteAdd');
+  const loteHint = document.getElementById('loteHint');
+
   let archivoValido = false;
   let operacionSeleccionada = '';
   let archivosUnion = []; // File[] — orden = orden de unión
+  let archivosLote = []; // File[] — se procesan por separado, el orden no importa
   let paginasSeleccionadas = new Set(); // números de página (1-based) para dividir
 
   function formatoTamano(bytes) {
@@ -78,9 +91,20 @@
     return op === 'division' || op === 'conversion_pdf_imagen';
   }
 
+  // Procesamiento por lotes (extra, oct 2026): debe coincidir exactamente con
+  // UploadController::OPERACIONES_POR_LOTES en el Backend. No incluye
+  // "union" (ya es multi-archivo, pero para combinarlos en uno) ni
+  // "division"/"conversion_pdf_imagen" (dependen del selector de páginas de
+  // un solo archivo).
+  function permiteLotes(op) {
+    return op === 'compresion' || op === 'conversion_pdf_word' || op === 'ocr';
+  }
+
   function actualizarBoton() {
     if (operacionSeleccionada === 'union') {
       btnProcesar.disabled = archivosUnion.length < 2;
+    } else if (permiteLotes(operacionSeleccionada)) {
+      btnProcesar.disabled = archivosLote.length === 0;
     } else if (usaSelectorPaginas(operacionSeleccionada)) {
       btnProcesar.disabled = !(archivoValido && paginasSeleccionadas.size > 0);
     } else {
@@ -139,6 +163,8 @@
   input.addEventListener('change', () => {
     if (operacionSeleccionada === 'union') {
       agregarArchivosUnion(Array.from(input.files || []));
+    } else if (permiteLotes(operacionSeleccionada)) {
+      agregarArchivosLote(Array.from(input.files || []));
     } else {
       manejarArchivoUnico(input.files[0]);
     }
@@ -162,6 +188,8 @@
     if (!archivos.length) return;
     if (operacionSeleccionada === 'union') {
       agregarArchivosUnion(archivos);
+    } else if (permiteLotes(operacionSeleccionada)) {
+      agregarArchivosLote(archivos);
     } else {
       input.files = e.dataTransfer.files;
       manejarArchivoUnico(archivos[0]);
@@ -205,6 +233,8 @@
     let esValido;
     if (operacionSeleccionada === 'union') {
       esValido = archivosUnion.length >= 2;
+    } else if (permiteLotes(operacionSeleccionada)) {
+      esValido = archivosLote.length > 0;
     } else if (usaSelectorPaginas(operacionSeleccionada)) {
       esValido = archivoValido && paginasSeleccionadas.size > 0;
     } else {
@@ -296,12 +326,13 @@
     }
 
     // El archivo "principal" que ya estaba cargado (en modo de un solo
-    // archivo, o el primero de la lista de Unir) se conserva al cambiar de
-    // operación, para no obligar a resubir por elegir mal la primera vez.
-    // Unir/Dividir siempre necesitan un PDF real (miniaturas con pdf.js), así
-    // que si venía de OCR con una imagen cargada, no se arrastra: es más
-    // seguro pedir que se vuelva a elegir el archivo.
-    const archivoPrincipal = archivosUnion[0] || (archivoValido ? input.files[0] : null);
+    // archivo, el primero de la lista de Unir, o el primero de un lote) se
+    // conserva al cambiar de operación, para no obligar a resubir por elegir
+    // mal la primera vez. Unir/Dividir siempre necesitan un PDF real
+    // (miniaturas con pdf.js), así que si venía de OCR con una imagen
+    // cargada, no se arrastra: es más seguro pedir que se vuelva a elegir
+    // el archivo.
+    const archivoPrincipal = archivosUnion[0] || archivosLote[0] || (archivoValido ? input.files[0] : null);
     const esPdfReal = archivoPrincipal
       && (archivoPrincipal.type === 'application/pdf' || /\.pdf$/i.test(archivoPrincipal.name));
 
@@ -311,14 +342,38 @@
       input.name = 'archivos[]';
       fileRow.hidden = true;
       divisionPanel.hidden = true;
+      lotePanel.hidden = true;
       unionPanel.hidden = false;
       archivosUnion = archivoParaUnion ? [archivoParaUnion] : [];
+      archivosLote = [];
       sincronizarInputUnion();
       renderizarUnion();
+    } else if (permiteLotes(actual)) {
+      // Procesamiento por lotes (extra, oct 2026): los archivos que ya
+      // estaban elegidos (de Unir, de un solo archivo, o de otro lote) se
+      // conservan si siguen siendo válidos para la nueva operación — p. ej.
+      // una imagen cargada para OCR se descarta al cambiar a "Comprimir",
+      // en vez de arrastrarla inválida.
+      input.multiple = true;
+      input.name = 'archivo[]';
+      fileRow.hidden = true;
+      unionPanel.hidden = true;
+      divisionPanel.hidden = true;
+      lotePanel.hidden = false;
+
+      const candidatos = archivosLote.length
+        ? archivosLote
+        : (archivosUnion.length ? archivosUnion : (archivoPrincipal ? [archivoPrincipal] : []));
+      limpiarError();
+      archivosLote = candidatos.filter((archivo) => validarArchivo(archivo));
+      archivosUnion = [];
+      sincronizarInputLote();
+      renderizarLote();
     } else {
       input.multiple = false;
       input.name = 'archivo';
       unionPanel.hidden = true;
+      lotePanel.hidden = true;
       if (archivoPrincipal) {
         const dt = new DataTransfer();
         dt.items.add(archivoPrincipal);
@@ -327,6 +382,7 @@
         if (archivoValido) mostrarArchivo(archivoPrincipal);
       }
       archivosUnion = [];
+      archivosLote = [];
       if (usaSelectorPaginas(actual)) {
         divisionPanel.hidden = false;
         if (archivoPrincipal && archivoValido) cargarPaginasDivision(archivoPrincipal);
@@ -454,6 +510,90 @@
   }
 
   unionAdd.addEventListener('click', () => input.click());
+
+  // ------------------------------------------------------------------
+  // Procesamiento por lotes (extra, oct 2026) — Comprimir / Convertir a
+  // Word / OCR: lista simple de archivos, cada uno se procesa por separado
+  // (sin reordenar, sin miniatura de página — ver permiteLotes() arriba y
+  // UploadController::procesarLote() en Backend).
+  // ------------------------------------------------------------------
+
+  function sincronizarInputLote() {
+    const dt = new DataTransfer();
+    archivosLote.forEach((archivo) => dt.items.add(archivo));
+    input.files = dt.files;
+  }
+
+  function agregarArchivosLote(nuevos) {
+    limpiarError();
+    const validos = [];
+    let ignoradosPorTope = 0;
+
+    nuevos.forEach((archivo) => {
+      const yaEsta = archivosLote.some((a) => a.name === archivo.name && a.size === archivo.size);
+      if (yaEsta) return;
+      if (archivosLote.length + validos.length >= MAX_ARCHIVOS_LOTE) {
+        ignoradosPorTope++;
+        return;
+      }
+      if (!validarArchivo(archivo)) return;
+      validos.push(archivo);
+    });
+
+    archivosLote = archivosLote.concat(validos);
+
+    if (ignoradosPorTope > 0) {
+      mostrarError('Se puede procesar hasta ' + MAX_ARCHIVOS_LOTE + ' archivos a la vez; ' + ignoradosPorTope + ' no se agregaron.');
+    }
+
+    sincronizarInputLote();
+    renderizarLote();
+    actualizarBoton();
+  }
+
+  function quitarArchivoLote(indice) {
+    archivosLote.splice(indice, 1);
+    sincronizarInputLote();
+    renderizarLote();
+    actualizarBoton();
+  }
+
+  function renderizarLote() {
+    loteItems.innerHTML = '';
+
+    if (archivosLote.length === 0) {
+      loteHint.textContent = 'Agrega uno o más archivos para procesar — cada uno se procesa por separado.';
+    } else if (archivosLote.length === 1) {
+      loteHint.textContent = '1 archivo listo.';
+    } else {
+      loteHint.textContent = archivosLote.length + ' archivos listos — se procesarán por separado.';
+    }
+
+    archivosLote.forEach((archivo, indice) => {
+      const item = document.createElement('div');
+      item.className = 'pdflex-lote-item';
+
+      item.innerHTML =
+        '<span class="pdflex-lote-icon" aria-hidden="true">' +
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"></path><path d="M14 3v4h4"></path></svg>' +
+        '</span>' +
+        '<div class="pdflex-lote-info">' +
+        '<div class="pdflex-lote-name"></div>' +
+        '<div class="pdflex-lote-size"></div>' +
+        '</div>' +
+        '<button type="button" class="pdflex-lote-remove" aria-label="Quitar archivo">' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>' +
+        '</button>';
+
+      item.querySelector('.pdflex-lote-name').textContent = archivo.name;
+      item.querySelector('.pdflex-lote-size').textContent = formatoTamano(archivo.size);
+      item.querySelector('.pdflex-lote-remove').addEventListener('click', () => quitarArchivoLote(indice));
+
+      loteItems.appendChild(item);
+    });
+  }
+
+  loteAdd.addEventListener('click', () => input.click());
 
   // ------------------------------------------------------------------
   // s5-f1b — "Dividir": una cuadrícula con todas las páginas del archivo,
@@ -706,6 +846,101 @@
   const tarjetas = document.querySelectorAll('.pdflex-estado-card.en_curso[data-consultar-url]');
   if (!tarjetas.length) return; // pantalla sin procesos en curso (o no es Estado)
 
+  // ------------------------------------------------------------------
+  // Notificaciones de proceso terminado (extra, oct 2026): cuando un
+  // proceso en curso termina (completado o error), se avisa con un toast
+  // flotante en pantalla y, si el usuario dio permiso, con una notificación
+  // real del navegador — para que se entere aunque esté en otra pestaña o
+  // en otra app mientras algo largo (OCR, compresión) termina de correr.
+  // ------------------------------------------------------------------
+
+  const LLAVE_NO_MOLESTAR = 'pdflexNotifAhoraNo';
+  const banner = document.getElementById('pdflexNotifBanner');
+  const btnActivar = document.getElementById('pdflexNotifActivar');
+  const btnAhoraNo = document.getElementById('pdflexNotifAhoraNo');
+  const toastWrap = document.getElementById('pdflexToastWrap');
+  const tieneNotificaciones = typeof window.Notification !== 'undefined';
+
+  function yaDijoQueNo() {
+    try {
+      return localStorage.getItem(LLAVE_NO_MOLESTAR) === '1';
+    } catch (err) {
+      return false; // almacenamiento bloqueado (navegación privada, etc.) — no es grave, solo se vuelve a mostrar
+    }
+  }
+
+  function pedirPermisoNotificaciones() {
+    if (!banner || !tieneNotificaciones) return;
+    if (Notification.permission !== 'default') return; // ya dijo que sí o que no antes
+    if (yaDijoQueNo()) return; // ya cerró el banner antes en este navegador
+
+    banner.hidden = false;
+
+    btnActivar.addEventListener('click', () => {
+      // Notification.requestPermission() tiene que dispararse desde un clic
+      // real: si se llama solo al cargar la página, Chrome y Firefox la
+      // ignoran (o la bloquean) sin mostrar el diálogo nativo.
+      Notification.requestPermission().finally(() => {
+        banner.hidden = true;
+      });
+    });
+
+    btnAhoraNo.addEventListener('click', () => {
+      banner.hidden = true;
+      try {
+        localStorage.setItem(LLAVE_NO_MOLESTAR, '1');
+      } catch (err) {
+        // sin almacenamiento disponible: se vuelve a preguntar la próxima vez, no es grave
+      }
+    });
+  }
+
+  function crearToast(proceso) {
+    if (!toastWrap) return;
+
+    const esError = proceso.estado === 'error';
+    const toast = document.createElement('div');
+    toast.className = 'pdflex-toast' + (esError ? ' error' : '');
+
+    const icono = esError
+      ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>'
+      : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M8 12.5l2.5 2.5L16 9.5"></path></svg>';
+
+    const mensaje = esError ? 'Terminó con un error.' : 'Terminó — ya puedes descargarlo.';
+
+    toast.innerHTML =
+      '<span class="pdflex-toast-icon" aria-hidden="true">' + icono + '</span>' +
+      '<div class="pdflex-toast-texto"><span class="pdflex-toast-nombre"></span><br>' + mensaje + '</div>' +
+      '<button type="button" class="pdflex-toast-cerrar" aria-label="Cerrar aviso">' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"></path></svg>' +
+      '</button>';
+
+    toast.querySelector('.pdflex-toast-nombre').textContent = proceso.archivo || 'Tu archivo';
+
+    const quitar = () => toast.remove();
+    toast.querySelector('.pdflex-toast-cerrar').addEventListener('click', quitar);
+    toastWrap.appendChild(toast);
+    setTimeout(quitar, 8000);
+  }
+
+  function notificarProcesoTerminado(proceso) {
+    crearToast(proceso);
+
+    if (!tieneNotificaciones || Notification.permission !== 'granted') return;
+
+    const esError = proceso.estado === 'error';
+    const titulo = esError ? 'PDFlex — error al procesar' : 'PDFlex — proceso terminado';
+    const cuerpo = (proceso.archivo || 'Tu archivo') + (esError ? ': ocurrió un error.' : ': ya puedes descargarlo.');
+
+    const notificacion = new Notification(titulo, { body: cuerpo, tag: 'pdflex-proceso-' + proceso.id });
+    notificacion.onclick = () => {
+      window.focus();
+      notificacion.close();
+    };
+  }
+
+  pedirPermisoNotificaciones();
+
   function escaparHtml(texto) {
     const div = document.createElement('div');
     div.textContent = texto == null ? '' : String(texto);
@@ -804,6 +1039,7 @@
           if (proceso && proceso.estado && proceso.estado !== 'en_curso') {
             clearInterval(intervalo);
             actualizarTarjeta(tarjeta, proceso);
+            notificarProcesoTerminado(proceso);
           }
         })
         .catch(() => {
