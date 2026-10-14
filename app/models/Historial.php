@@ -123,4 +123,127 @@ class Historial
         $stmt->execute([$usuarioId]);
         return (int) $stmt->fetchColumn();
     }
+
+    // ---------------------------------------------------------------
+    // NUEVO (extra, oct 2026) — usados por AdminController para el Panel
+    // de administrador. A diferencia de todo lo de arriba, estos NO
+    // filtran por usuario_id: son estadísticas de TODO el sistema.
+    // ---------------------------------------------------------------
+
+    /**
+     * Cuántos registros de `historial` hay por cada `estado`
+     * (pendiente/procesando/completado/error), de todos los usuarios. Los
+     * estados sin ningún registro simplemente no aparecen en el array —
+     * quien llama rellena con 0 lo que necesite (ver
+     * AdminController::index(), que usa `?? 0` para cada clave).
+     */
+    public static function contarPorEstado(): array
+    {
+        $pdo = Database::getConnection();
+        $stmt = $pdo->query('SELECT estado, COUNT(*) AS total FROM historial GROUP BY estado');
+
+        $resultado = [];
+        foreach ($stmt->fetchAll() as $fila) {
+            $resultado[$fila['estado']] = (int) $fila['total'];
+        }
+        return $resultado;
+    }
+
+    /**
+     * Igual que contarPorEstado() pero agrupado por tipo_operacion, de más
+     * a menos usado.
+     */
+    public static function contarPorOperacion(): array
+    {
+        $pdo = Database::getConnection();
+        $stmt = $pdo->query('SELECT tipo_operacion, COUNT(*) AS total FROM historial GROUP BY tipo_operacion ORDER BY total DESC');
+
+        $resultado = [];
+        foreach ($stmt->fetchAll() as $fila) {
+            $resultado[$fila['tipo_operacion']] = (int) $fila['total'];
+        }
+        return $resultado;
+    }
+
+    /**
+     * Espacio ahorrado (en KB) por TODAS las compresiones completadas del
+     * sistema, sumando (tamaño original − tamaño resultado) de cada una.
+     * Filtrado a tipo_operacion = 'compresion' a propósito: el resto de
+     * operaciones no busca reducir el tamaño del archivo (una conversión
+     * o un OCR pueden perfectamente dar un resultado más pesado que el
+     * original, eso no sería "ahorro").
+     *
+     * CAST(... AS SIGNED) en los dos operandos (encontrado probando esto
+     * en vivo, 14 oct 2026): tamano_original_kb/tamano_resultado_kb son
+     * INT UNSIGNED (ver schema.sql). Si algún registro de compresión
+     * terminó pesando IGUAL O MÁS que el original (pasa, p. ej., con
+     * archivos que ya venían casi sin margen para comprimir), la resta
+     * directa entre dos UNSIGNED da un resultado negativo que MySQL
+     * "envuelve" a un número gigantesco en vez de dejarlo negativo —
+     * sumar eso desborda hasta el rango de BIGINT UNSIGNED y tira
+     * PDOException en vez de un número. Castear a SIGNED antes de restar
+     * evita el envolvimiento: una compresión que no ahorró nada resta en
+     * negativo como corresponde, y el total sigue siendo honesto.
+     */
+    public static function ahorroCompresionKb(): int
+    {
+        $pdo = Database::getConnection();
+        $stmt = $pdo->query(
+            "SELECT COALESCE(SUM(CAST(tamano_original_kb AS SIGNED) - CAST(tamano_resultado_kb AS SIGNED)), 0) AS ahorro
+             FROM historial
+             WHERE tipo_operacion = 'compresion' AND estado = 'completado'
+               AND tamano_original_kb IS NOT NULL AND tamano_resultado_kb IS NOT NULL"
+        );
+        return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * Los $limite usuarios con más operaciones registradas (de cualquier
+     * estado), para la lista "Usuarios con más actividad" del Panel de
+     * administrador. $limite siempre lo pone el propio código (no un input
+     * de usuario) — mismo criterio de seguridad que ya documenta
+     * recientes() más arriba, así que interpolarlo directo en el LIMIT es
+     * seguro.
+     */
+    public static function usuariosMasActivos(int $limite = 5): array
+    {
+        $pdo = Database::getConnection();
+        $limite = max(1, $limite);
+
+        $stmt = $pdo->query(
+            "SELECT u.id, u.nombre, u.rol, COUNT(h.id) AS total
+             FROM historial h
+             JOIN usuarios u ON u.id = h.usuario_id
+             GROUP BY u.id, u.nombre, u.rol
+             ORDER BY total DESC
+             LIMIT {$limite}"
+        );
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Operaciones por día en los últimos $dias días (incluido hoy), como
+     * [fecha "Y-m-d" => cantidad]. Solo trae los días que SÍ tuvieron al
+     * menos una operación — AdminController::actividadRellenada() completa
+     * los días sin ninguna en 0, para el mini gráfico de actividad.
+     */
+    public static function actividadPorDia(int $dias = 14): array
+    {
+        $pdo = Database::getConnection();
+        $dias = max(1, $dias);
+
+        $stmt = $pdo->query(
+            "SELECT DATE(fecha_inicio) AS dia, COUNT(*) AS total
+             FROM historial
+             WHERE fecha_inicio >= DATE_SUB(CURDATE(), INTERVAL {$dias} DAY)
+             GROUP BY DATE(fecha_inicio)
+             ORDER BY dia ASC"
+        );
+
+        $resultado = [];
+        foreach ($stmt->fetchAll() as $fila) {
+            $resultado[$fila['dia']] = (int) $fila['total'];
+        }
+        return $resultado;
+    }
 }

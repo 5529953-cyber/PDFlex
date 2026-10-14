@@ -174,6 +174,14 @@ $cssVersion = @filemtime(__DIR__ . '/../../../public/assets/css/style.css') ?: t
           'historial' => ['url' => '/historial', 'texto' => 'Historial', 'icono' => '<circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5V12l3 2"></path>'],
           'estado'    => ['url' => '/estado',     'texto' => 'Estado',    'icono' => '<path d="M3 12h4l2.5-7L13 19l2.5-7H21"></path>'],
       ];
+      // NUEVO (extra, oct 2026) — pestaña "Admin" solo para cuentas con
+      // rol "admin" (ver AdminController::requiereAdmin(); mismo dato de
+      // sesión que ya guarda AuthController::procesarLogin()). El resto de
+      // usuarios ni siquiera ve el enlace, aunque la ruta igual está
+      // protegida del lado del servidor por si alguien escribe /admin a mano.
+      if (($_SESSION['usuario_rol'] ?? '') === 'admin') {
+          $navItems['admin'] = ['url' => '/admin', 'texto' => 'Admin', 'icono' => '<path d="M4 20V13"></path><path d="M10 20V6"></path><path d="M16 20v-9"></path><path d="M3 20h18"></path>'];
+      }
       ?>
       <nav class="pdflex-nav">
         <?php foreach ($navItems as $clave => $item):

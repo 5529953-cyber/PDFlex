@@ -68,4 +68,6 @@ $router->get('/perfil', ['PerfilController', 'index']); // NUEVO — datos de cu
 $router->post('/perfil', ['PerfilController', 'actualizar']);
 $router->post('/perfil/contrasena', ['PerfilController', 'actualizarContrasena']);
 
+$router->get('/admin', ['AdminController', 'index']); // NUEVO (extra, oct 2026) — panel de administrador, estadísticas de uso. Solo rol "admin" — ver AdminController::requiereAdmin().
+
 $router->resolver();

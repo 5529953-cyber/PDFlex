@@ -57,4 +57,23 @@ class Usuario
         $stmt = $pdo->prepare('UPDATE usuarios SET nombre = ?, correo = ? WHERE id = ?');
         $stmt->execute([$nombre, $correo, $id]);
     }
+
+    /**
+     * NUEVO (extra, oct 2026) — cuántas cuentas hay por cada `rol`, para el
+     * Panel de administrador (ver AdminController). Los roles sin ninguna
+     * cuenta no aparecen en el array devuelto — AdminController los
+     * rellena con 0 para que la lista de "Cuentas por rol" siempre muestre
+     * los 4 roles del ENUM.
+     */
+    public static function contarPorRol(): array
+    {
+        $pdo = Database::getConnection();
+        $stmt = $pdo->query('SELECT rol, COUNT(*) AS total FROM usuarios GROUP BY rol');
+
+        $resultado = [];
+        foreach ($stmt->fetchAll() as $fila) {
+            $resultado[$fila['rol']] = (int) $fila['total'];
+        }
+        return $resultado;
+    }
 }

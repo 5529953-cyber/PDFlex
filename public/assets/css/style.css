@@ -1864,3 +1864,179 @@ a:hover {
   opacity: 0;
   pointer-events: none;
 }
+
+/* ============================================================
+   Panel de administrador — estadísticas de uso (extra, oct 2026).
+   Mismo lenguaje visual que el resto (.pdflex-card, paleta mostaza/
+   beige) en vez de una librería de gráficos: las "barras" son <div>
+   con ancho/alto en % ya calculado en PHP por AdminController — no
+   hay gráfico real ni canvas, alcanza para lo que pide la solicitud
+   original ("estadísticas de uso, para justificar el proyecto ante
+   el instituto").
+   ============================================================ */
+.pdflex-admin-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.pdflex-admin-tile {
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 10px 24px rgba(46, 44, 38, 0.10);
+  padding: 18px 20px;
+}
+.pdflex-admin-tile-valor {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 700;
+  font-size: 1.7rem;
+  color: var(--ink);
+  line-height: 1.2;
+}
+.pdflex-admin-tile-etiqueta {
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  margin-top: 2px;
+}
+
+.pdflex-admin-cols {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.pdflex-admin-cols .pdflex-card {
+  flex: 1 1 360px;
+  min-width: 300px;
+}
+.pdflex-admin-card-title {
+  font-weight: 600;
+  font-size: 13.5px;
+  margin-bottom: 14px;
+}
+.pdflex-admin-vacio {
+  font-size: 13px;
+  color: var(--ink-dim);
+  margin: 0;
+}
+
+.pdflex-admin-barras {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pdflex-admin-barra-fila {
+  display: grid;
+  grid-template-columns: 1fr 2.4fr auto;
+  align-items: center;
+  gap: 10px;
+}
+.pdflex-admin-barra-etiqueta {
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pdflex-admin-barra-pista {
+  height: 9px;
+  border-radius: 5px;
+  background: var(--line);
+  overflow: hidden;
+}
+.pdflex-admin-barra-relleno {
+  height: 100%;
+  border-radius: 5px;
+  background: var(--acento);
+}
+.pdflex-admin-barra-relleno-rol {
+  background: var(--tono5);
+}
+.pdflex-admin-barra-valor {
+  font-size: 12.5px;
+  font-weight: 600;
+  min-width: 2ch;
+  text-align: right;
+}
+
+.pdflex-admin-ranking {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pdflex-admin-ranking-fila {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.pdflex-admin-ranking-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1.2px solid var(--line-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink-dim);
+  flex-shrink: 0;
+}
+.pdflex-admin-ranking-info {
+  flex: 1;
+  min-width: 0;
+}
+.pdflex-admin-ranking-nombre {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pdflex-admin-ranking-rol {
+  font-size: 11.5px;
+  color: var(--ink-dim);
+}
+.pdflex-admin-ranking-total {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--acento);
+  flex-shrink: 0;
+}
+
+.pdflex-admin-dias {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 120px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.pdflex-admin-dia {
+  flex: 1 0 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  min-width: 18px;
+}
+.pdflex-admin-dia-barra {
+  width: 100%;
+  max-width: 20px;
+  border-radius: 4px 4px 0 0;
+  background: var(--estado-progreso);
+  min-height: 2px;
+}
+.pdflex-admin-dia-etiqueta {
+  font-size: 9.5px;
+  color: var(--ink-dim);
+  margin-top: 6px;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .pdflex-admin-barra-fila {
+    grid-template-columns: 1fr 1.6fr auto;
+  }
+}
